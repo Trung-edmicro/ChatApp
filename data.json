@@ -98,6 +98,18 @@
                 "sender": "AI",
                 "content": "Xin chào! Tôi là OpenAI ChatGPT.",
                 "timestamp": "2025-02-23T14:01:45.822740"
+            },
+            {
+                "message_id": "msg_a9af6c",
+                "sender": "user",
+                "content": "test 1",
+                "timestamp": "2025-02-23T17:43:12.882233"
+            },
+            {
+                "message_id": "msg_a9af6c",
+                "sender": "AI",
+                "content": "Xin chào! Tôi là OpenAI ChatGPT.",
+                "timestamp": "2025-02-23T17:43:12.882242"
             }
         ],
         "ai_config": {

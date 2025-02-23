@@ -75,11 +75,11 @@ class ToggleSwitch(QWidget):
         self.animation.start()
 
 class ChatItem(QWidget):
-    def __init__(self, message_id, message="", sender="user", parent=None, chat_manager=None):
+    def __init__(self, message_id, message="", sender="user", parent=None, chat_app=None):
         super().__init__(parent)
 
-        self.message_id = message_id  # ID của tin nhắn
-        self.chat_manager = chat_manager 
+        self.message_id = message_id
+        self.chat_app = chat_app 
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
@@ -94,13 +94,13 @@ class ChatItem(QWidget):
         self.more_button.setStyleSheet("border: none; background-color: transparent;") 
         self.more_button.clicked.connect(self.show_more_menu)
 
-        # **Layout chứa nút More Options**
+        # Layout chứa nút More Options
         more_layout = QHBoxLayout()
         more_layout.setContentsMargins(0, 0, 0, 0)
         more_layout.addStretch()
         more_layout.addWidget(self.more_button)
 
-        # **Khu vực chat**
+        # Khu vực chat
         self.text_edit = QTextEdit()
         self.text_edit.setText(message)
         self.text_edit.setReadOnly(True)
@@ -189,7 +189,10 @@ class ChatItem(QWidget):
         menu.exec_(self.more_button.mapToGlobal(self.more_button.rect().bottomRight()))
 
     def add_text(self):
-        print(f"📌 message_id: {self.message_id}")
+        message_content = self.text_edit.toPlainText()
+        if self.chat_app:
+            print("in")
+            self.chat_app.add_selected_message(message_content)
 
     def copy_text(self):
         clipboard = QApplication.clipboard()
@@ -205,6 +208,7 @@ class ChatApp(QWidget):
         super().__init__()
         self.initUI()
         self.load_chat_history()
+        self.selected_messages_data = []
 
     def initUI(self):
         app_font = QFont("Inter", 12)
@@ -219,7 +223,7 @@ class ChatApp(QWidget):
         history_layout = QVBoxLayout()
 
             # New session button
-        self.button_create_new = QPushButton("Create Prompt", self)
+        self.button_create_new = QPushButton("Tạo mới", self)
         self.button_create_new.setStyleSheet(f"""
             QPushButton {{
                 background-color: {styles.NEW_SESSION_BUTTON_COLOR};
@@ -366,6 +370,7 @@ class ChatApp(QWidget):
             }
             QListWidget::item {
                 background-color: #222222;
+                border-radius: 5px;
                 padding: 3px;
                 margin: 3px 2px;
             }
@@ -401,15 +406,10 @@ class ChatApp(QWidget):
         self.export_button.clicked.connect(self.export_list_messages)
         buttons_layout.addWidget(self.export_button)
 
-        # Thêm layout nút vào cuối cùng của layout chính
         list_messages_layout.addLayout(buttons_layout)
 
-        # Gán layout vào widget
         list_messages_widget.setLayout(list_messages_layout)
-
-        # Thêm widget vào layout chính
         main_layout.addWidget(list_messages_widget)
-        self.load_messages_from_json()
         
         self.setLayout(main_layout)
         
@@ -428,7 +428,7 @@ class ChatApp(QWidget):
 
                     item = QListWidgetItem(elided_text)
                     item.setData(Qt.UserRole, session['session_id'])
-                    item.setSizeHint(QSize(self.history_list.width(), 30))
+                    item.setSizeHint(QSize(self.history_list.width(), 40))
                     self.history_list.addItem(item)
         except FileNotFoundError:
             with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
@@ -449,9 +449,9 @@ class ChatApp(QWidget):
                             msg_text = message['content']
 
                             # Tạo ChatItem mới
-                            msg_widget = ChatItem(msg_id, msg_text, sender=sender)
+                            msg_widget = ChatItem(msg_id, msg_text, sender=sender, chat_app=self)
                             msg_item = QListWidgetItem()
-                            msg_item.setSizeHint(msg_widget.sizeHint())  # Điều chỉnh kích thước item
+                            msg_item.setSizeHint(msg_widget.sizeHint())
 
                             # Thêm vào khung chat
                             self.chat_display.addItem(msg_item)
@@ -580,39 +580,23 @@ class ChatApp(QWidget):
         with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
             json.dump(chat_sessions, file, ensure_ascii=False, indent=4)
 
-    def load_messages_from_json(self):
-        """Load tin nhắn từ JSON vào danh sách"""
-        json_data = '''
-        {
-            "messages": [
-                {
-                    "message_id": "msg_001",
-                    "selected": false,
-                    "sender": "user",
-                    "content": "Xin chào! Đây là một tin nhắn thử nghiệm rất dài để kiểm tra giao diện UI.",
-                    "timestamp": "2025-02-21T08:30:00Z"
-                },
-                {
-                    "message_id": "msg_002",
-                    "selected": false,
-                    "sender": "AI",
-                    "content": "Chào Trung! Tin nhắn này cũng dài nhưng sẽ bị cắt nếu vượt quá giới hạn.",
-                    "timestamp": "2025-02-21T08:30:05Z"
-                }
-            ]
-        }
-        '''
-        data = json.loads(json_data)
+    def add_selected_message(self, message):
+        if message not in self.selected_messages_data:
+            self.selected_messages_data.append(message)
 
-        self.selected_messages.clear()
-        self.selected_messages.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.selected_messages.setWordWrap(True)
+            index = self.selected_messages.count() + 1  
+            display_text = f"{index}. {message}"  
 
-        for index, msg in enumerate(data["messages"], start=1):
-            item_text = f"{index}. {msg['content']}"
-            item = QListWidgetItem(item_text)
-            item.setSizeHint(QSize(240, 30))  # Kích thước chiều rộng tối đa của item
-            item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            max_width = self.selected_messages.width() - 40 
+            self.selected_messages.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+            metrics = QFontMetrics(self.selected_messages.font())
+            elided_text = metrics.elidedText(display_text, Qt.ElideRight, max_width)  
+            
+            item = QListWidgetItem(elided_text)
+            item.setToolTip(display_text) 
+
+            item.setSizeHint(QSize(max_width, 30))
             self.selected_messages.addItem(item)
 
     def clear_list_messages(self):
@@ -620,7 +604,6 @@ class ChatApp(QWidget):
 
     def export_list_messages(self):
         print("Export")
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
