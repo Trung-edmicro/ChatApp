@@ -8,17 +8,17 @@ from datetime import datetime
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
-CHAT_HISTORY_FILE = "ChatApp/data.json"
+CHAT_HISTORY_FILE = "data.json"
 
-# Cấu hình AI API
-    # OpenAI
-client = openai.OpenAI(api_key="")
+# # Cấu hình AI API
+#     # OpenAI
+# client = openai.OpenAI(api_key="")
 
-    # Gemini
-api_key = ""
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
-chat = model.start_chat(history=[])
+#     # Gemini
+# api_key = ""
+# genai.configure(api_key=api_key)
+# model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+# chat = model.start_chat(history=[])
 
 class ToggleSwitch(QWidget):
     toggled_signal = pyqtSignal(bool)
@@ -204,9 +204,22 @@ class ChatItem(QWidget):
         clipboard.setText(markdown_text)
 
 class ChatApp(QWidget):
-    def __init__(self, app):
+    def __init__(self, app, openai_api_key, gemini_api_key, postgres_driver):
         super().__init__()
         self.app = app
+        self.openai_api_key = openai_api_key # Lưu API keys
+        self.gemini_api_key = gemini_api_key # Lưu API keys
+        self.postgres_driver = postgres_driver # Lưu driver postgres
+        
+        # Cấu hình AI API
+        # OpenAI
+        self.openai_client = openai.OpenAI(api_key=self.openai_api_key)
+
+        # Gemini
+        genai.configure(api_key=self.gemini_api_key)
+        self.gemini_model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+        self.gemini_chat = self.gemini_model.start_chat(history=[])
+        
         self.initUI()
         self.load_chat_history()
         self.selected_messages_data = []

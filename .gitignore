@@ -1,0 +1,2 @@
+__pycache__/ # Thêm cả thư mục __pycache__ gốc nếu cần
+.env
