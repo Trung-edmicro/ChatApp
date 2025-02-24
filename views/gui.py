@@ -460,16 +460,7 @@ class ChatApp(QWidget):
         if summary_json_string:
             try:
                 # Deserialize JSON string về history object của Gemini
-                # history_list = json.loads(summary_json_string) # Deserialize JSON string to Python list
-                gemini_history = summary_json_string
-                # for chat_turn_data in history_list:
-                #     gemini_history.append(
-                #     content_types.Part( # Sử dụng content_types.Part
-                #         role=chat_turn_data["role"],
-                #         parts=chat_turn_data["parts"]
-                #     )
-                # )
-                self.gemini_chat = self.gemini_model.start_chat(history=gemini_history) # Khôi phục history cho gemini_chat
+                self.gemini_chat = self.gemini_model.start_chat(history=json.loads(summary_json_string)) # Khôi phục history cho gemini_chat
                 print(f"History đã được load cho session ID: {session_id}") # Log load history
             except json.JSONDecodeError as e:
                 print(f"Lỗi giải mã JSON history cho session ID {session_id}: {e}") # Log lỗi JSON decode
@@ -542,15 +533,13 @@ class ChatApp(QWidget):
             # === Serialize self.gemini_chat.history to JSON string ===
             history_json_string = ""
             if self.gemini_chat and self.gemini_chat.history:
-                # history_json_string = json.dumps([
-                #     {
-                #         "role": chat_turn.role,
-                #         "parts": [part.text for part in chat_turn.parts] # Lưu parts dưới dạng list text
-                #     }
-                #     for chat_turn in self.gemini_chat.history
-                # ], ensure_ascii=False) # Serialize history to JSON string
-                history_json_string = str(self.gemini_chat.history)
-
+                history_json_string = json.dumps([
+                    {
+                        "role": chat_turn.role,
+                        "parts": [part.text for part in chat_turn.parts] # Lưu parts dưới dạng list text
+                    }
+                    for chat_turn in self.gemini_chat.history
+                ], ensure_ascii=False)
             if history_json_string:
                 to_statement_index = 0
                 summary_text = history_json_string # Lưu JSON string vào summary_text
