@@ -213,7 +213,6 @@ class ChatApp(QWidget):
         
         self.initUI()
         self.load_sessions_from_db() # Gọi hàm load sessions từ DB
-        # self.load_chat_history()
         self.selected_messages_data = []
 
     def initUI(self):
@@ -441,26 +440,6 @@ class ChatApp(QWidget):
         else:
             print("Không có session nào trong Database.") # Vẫn in log nếu không có session
 
-    def load_chat_history(self):
-        try:
-            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
-                chat_sessions = json.load(file)
-                self.history_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-                max_width = self.history_list.width() - 20
-                for session in chat_sessions:
-                    full_text = session['session_name']
-
-                    metrics = QFontMetrics(self.history_list.font())
-                    elided_text = metrics.elidedText(full_text, Qt.ElideRight, max_width)
-
-                    item = QListWidgetItem(elided_text)
-                    item.setData(Qt.UserRole, session['session_id'])
-                    item.setSizeHint(QSize(self.history_list.width(), 40))
-                    self.history_list.addItem(item)
-        except FileNotFoundError:
-            with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
-                json.dump([], file)
-
     def load_selected_chat(self, item):
         session_id = item.data(Qt.UserRole)
         self.chat_display.clear() # Clear chat display trước khi load messages mới
@@ -492,7 +471,12 @@ class ChatApp(QWidget):
         # === Tạo session mới trong database ===
         db = next(get_db()) # Lấy database session
         session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}" # Tạo session name tự động
-        ai_model = "gpt-4" # Cứng cấu hình AI model, max_tokens, response_time (có thể làm động sau)
+        if self.is_toggle_on: # Kiểm tra self.is_toggle_on
+            ai_model = "gpt" # Hoặc model OpenAI/GPT bạn muốn dùng
+            print("Tạo session với OpenAI/GPT") # Log để debug
+        else:
+            ai_model = "gemini" # Hoặc model Gemini bạn muốn dùng
+            print("Tạo session với Gemini") # Log để debug
         ai_max_tokens = 1024
         ai_response_time = "fast"
 
@@ -516,49 +500,65 @@ class ChatApp(QWidget):
         self.is_toggle_on = state
 
     def send_message(self):
-        user_message = self.input_field.toPlainText().strip()
-        if not user_message:
+        user_message_text = self.input_field.toPlainText().strip() # Use user_message_text consistently
+        if not user_message_text:
             return
 
-        message_id = f"msg_{uuid.uuid4().hex[:6]}"
+        # === Lấy session_id của session đang hiển thị ===
+        current_session_item = self.history_list.currentItem()
+        if not current_session_item:
+            print("Chưa chọn session để gửi tin nhắn.")
+            return
+        session_id = current_session_item.data(Qt.UserRole)
 
+        # === Lưu tin nhắn người dùng vào database ===
+        db = next(get_db())
+        db_user_message = create_message_controller(db, session_id, "user", user_message_text) # Use user_message_text
+        db.close()
+
+        # === Hiển thị tin nhắn người dùng lên GUI ===
         user_item = QListWidgetItem()
-        user_widget = ChatItem(message_id, user_message, sender="user")
+        user_widget = ChatItem(db_user_message.message_id, db_user_message.content, sender="user")
         user_item.setSizeHint(user_widget.sizeHint())
-
         self.chat_display.addItem(user_item)
         self.chat_display.setItemWidget(user_item, user_widget)
         self.input_field.clear()
-        
+
+        bot_reply_text = ""
+        ai_sender = "system"
+
         try:
-            if self.is_toggle_on:
-                # GPT
-                print("gpt")
-                # response = client.chat.completions.create(
-                #     model="gpt-4",
-                #     messages=[{"role": "user", "content": user_message}]
-                # )
-                # bot_reply = response.choices[0].message.content.strip()
-            else:
-                # Gemini
-                print("gemini")
-                # chat = model.start_chat(history=[])
+            if self.is_toggle_on: # Toggle ON: OpenAI/ChatGPT
+                print("Gọi OpenAI/ChatGPT API")
+                openai_response = self.openai_client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": user_message_text}] # **Corrected: user_message_text for OpenAI**
+                )
+                bot_reply_text = openai_response.choices[0].message.content.strip() # Correctly get text from OpenAI response
+                ai_sender = "system"
+            else: # Toggle OFF: Gemini
+                print("Gọi Gemini API")
+                gemini_response = self.gemini_chat.send_message(user_message_text) # **Corrected: user_message_text for Gemini**
+                bot_reply_text = gemini_response.text # Correctly get text from Gemini response
+                ai_sender = "system"
 
-                # response = chat.send_message(user_message)
-                # bot_reply = response.text
         except Exception as e:
-            bot_reply = f"Lỗi: {str(e)}"
+            bot_reply_text = f"Lỗi khi gọi AI API: {str(e)}"
+            ai_sender = "system"
 
-        bot_reply = "Xin chào! Tôi là OpenAI ChatGPT."
+        # === Lưu phản hồi AI vào database ===
+        db = next(get_db())
+        db_bot_message = create_message_controller(db, session_id, ai_sender, bot_reply_text)
+        db.close()
+
+        # === Hiển thị phản hồi AI lên GUI ===
         bot_item = QListWidgetItem()
-        bot_widget = ChatItem(message_id, bot_reply, sender="AI")
+        bot_widget = ChatItem(db_bot_message.message_id, db_bot_message.content, sender="system")
         bot_item.setSizeHint(bot_widget.sizeHint())
-
         self.chat_display.addItem(bot_item)
         self.chat_display.setItemWidget(bot_item, bot_widget)
 
         self.chat_display.scrollToBottom()
-        self.save_chat_history(message_id, user_message, bot_reply)
 
     def save_chat_history(self, message_id, user_message, bot_reply):
         try:

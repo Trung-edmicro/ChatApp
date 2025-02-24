@@ -2,7 +2,8 @@ import json
 from sqlalchemy.orm import Session
 from models import models
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timezone
+import uuid
 
 # --- Các hàm cho Session ---
 
@@ -78,6 +79,27 @@ def delete_session(db: Session, session_id: str):
         db.commit()
         return True # Xóa thành công
     return False # Session không tồn tại hoặc lỗi
+
+def create_message_controller(db: Session, session_id: str, sender: str, content: str):
+    """Tạo và lưu một message mới vào database."""
+    # Lấy statement_index tiếp theo cho session
+    last_message = db.query(models.Message).filter(models.Message.session_id == session_id).order_by(models.Message.statement_index.desc()).first()
+    next_statement_index = 1
+    if last_message:
+        next_statement_index = last_message.statement_index + 1
+
+    db_message = models.Message(
+        message_id=f"msg_{uuid.uuid4().hex[:6]}", # Tạo message_id tự động
+        session_id=session_id,
+        statement_index=next_statement_index,
+        sender=sender,
+        content=content,
+        timestamp=datetime.now(tz=timezone.utc) # Lưu thời gian UTC
+    )
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message
 
 # --- Các hàm cho AI-Selected Questions ---
 
