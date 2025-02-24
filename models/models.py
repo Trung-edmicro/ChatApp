@@ -28,6 +28,7 @@ class Message(Base):
     content = Column(Text)
     timestamp = Column(DateTime(timezone=True))
     is_selected = Column(Boolean, default=False) # Thêm trường is_ai_selected, mặc định là False
+    selected_at = Column(DateTime(timezone=True))  # <--- Dòng này mới thêm vào
 
     session = relationship("Session", back_populates="messages") # Quan hệ với bảng Session
 

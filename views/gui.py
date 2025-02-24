@@ -181,10 +181,9 @@ class ChatItem(QWidget):
         menu.exec_(self.more_button.mapToGlobal(self.more_button.rect().bottomRight()))
 
     def add_text(self):
-        message_content = self.text_edit.toPlainText()
         if self.chat_app:
-            print("in")
-            self.chat_app.add_selected_message(message_content)
+            print(f"Thêm message vào danh sách chọn: Message ID = {self.message_id}") # Log
+            self.chat_app.add_to_selected_messages(self.message_id) # Gọi hàm của ChatApp và truyền message_id
 
     def copy_text(self):
         clipboard = QApplication.clipboard()
@@ -213,6 +212,7 @@ class ChatApp(QWidget):
         
         self.initUI()
         self.load_sessions_from_db() # Gọi hàm load sessions từ DB
+        self.load_selected_messages_list()
         self.selected_messages_data = []
 
     def initUI(self):
@@ -419,7 +419,7 @@ class ChatApp(QWidget):
         self.setLayout(main_layout)
         
 # === Function ===
-    def load_sessions_from_db(self): # Đổi tên hàm thành load_sessions_from_db
+    def load_sessions_from_db(self):
         db = next(get_db())
         sessions = get_all_sessions(db)
         db.close()
@@ -595,27 +595,48 @@ class ChatApp(QWidget):
         with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
             json.dump(chat_sessions, file, ensure_ascii=False, indent=4)
 
-    def add_selected_message(self, message):
-        if message not in self.selected_messages_data:
-            self.selected_messages_data.append(message)
+    def add_to_selected_messages(self, message_id):
+        """Xử lý việc thêm message vào danh sách tin nhắn đã chọn."""
+        db = next(get_db())
+        selected_message = select_ai_response(db, message_id) # Gọi controller để select message trong DB
+        db.close()
 
-            index = self.selected_messages.count() + 1  
-            display_text = f"{index}. {message}"  
+        if selected_message:
+            print(f"Message ID {message_id} đã được chọn.") # Log
+            self.load_selected_messages_list() # Gọi hàm load lại danh sách selected messages
+        else:
+            print(f"Không thể chọn Message ID {message_id}.") # Log lỗi
 
-            max_width = self.selected_messages.width() - 40 
-            self.selected_messages.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    def load_selected_messages_list(self):
+        """Load danh sách các tin nhắn đã chọn từ database và hiển thị ở khung bên phải."""
+        self.selected_messages.clear() # Clear list trước khi load lại
+        db = next(get_db())
+        selected_messages_data = get_all_selected_messages_json(db) # Lấy danh sách selected messages JSON từ controller
+        db.close()
 
-            metrics = QFontMetrics(self.selected_messages.font())
-            elided_text = metrics.elidedText(display_text, Qt.ElideRight, max_width)  
-            
-            item = QListWidgetItem(elided_text)
-            item.setToolTip(display_text) 
-
-            item.setSizeHint(QSize(max_width, 30))
-            self.selected_messages.addItem(item)
+        if selected_messages_data:
+            for index, message_data in enumerate(selected_messages_data): # Sử dụng enumerate để lấy index
+                display_text = f"{index + 1}. {message_data['content'][:50]}..." # Thêm số thứ tự vào display_text (index + 1)
+                item = QListWidgetItem(display_text)
+                item.setToolTip(message_data['content']) # Tooltip hiển thị đầy đủ nội dung
+                item.setData(Qt.UserRole, message_data['message_id']) # Lưu message_id (nếu cần)
+                self.selected_messages.addItem(item)
+        else:
+            print("Không có tin nhắn nào được chọn.") # Log nếu không có selected messages
 
     def clear_list_messages(self):
-        print("xóa")
+        """Xóa tất cả các tin nhắn đã chọn khỏi danh sách."""
+        db = next(get_db())
+        cleared_count = clear_all_selected_messages_controller(db) # Gọi controller để xóa selected messages trong DB
+        db.close()
+
+        if cleared_count > 0:
+            print(f"{cleared_count} tin nhắn đã được bỏ chọn.") # Log số lượng tin nhắn đã bỏ chọn
+        else:
+            print("Không có tin nhắn nào được bỏ chọn (có thể chưa có tin nhắn nào được chọn).") # Log nếu không có tin nhắn nào được bỏ chọn
+
+        self.selected_messages_data = [] # Xóa dữ liệu selected_messages_data (in-memory list)
+        self.load_selected_messages_list() # Gọi hàm load lại danh sách selected messages (sẽ hiển thị danh sách trống)
 
     def export_list_messages(self):
         print("Export")

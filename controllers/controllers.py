@@ -1,7 +1,7 @@
 import json
 from sqlalchemy.orm import Session
 from models import models
-from sqlalchemy import func
+from sqlalchemy import func, asc
 from datetime import datetime, timezone
 import uuid
 
@@ -106,9 +106,24 @@ def create_message_controller(db: Session, session_id: str, sender: str, content
 def get_ai_selected_questions(db: Session):
     """Lấy danh sách các câu hỏi AI được lựa chọn."""
     return db.query(models.Message).filter(
-        models.Message.sender == 'AI',
+        models.Message.sender == 'system',
         models.Message.is_selected == True # Đã đổi tên cột thành is_selected
-    ).order_by(models.Message.timestamp.desc()).all() # Sắp xếp theo thời gian mới nhất trước
+    ).order_by(asc(models.Message.selected_at)).all() # Sắp xếp theo thời gian mới nhất trước
+
+def get_all_selected_messages_json(db: Session):
+    """Lấy danh sách các câu hỏi AI được lựa chọn và trả về cấu trúc JSON, đã sắp xếp theo selected_at."""
+    selected_messages = get_ai_selected_questions(db) # Sử dụng hàm get_ai_selected_questions đã có
+
+    messages_data_json = []
+    for message in selected_messages:
+        messages_data_json.append({
+            "message_id": message.message_id,
+            "sender": message.sender,
+            "content": message.content,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else None,
+            "selected_at": message.selected_at.isoformat() if message.selected_at else None # Thêm selected_at vào JSON
+        })
+    return messages_data_json
 
 def get_ai_selected_question_detail(db: Session, message_id: str):
     """Xem chi tiết một câu hỏi AI được lựa chọn."""
@@ -120,9 +135,10 @@ def get_ai_selected_question_detail(db: Session, message_id: str):
 
 def select_ai_response(db: Session, message_id: str):
     """Chọn một phản hồi AI vào danh sách câu hỏi lựa chọn."""
-    db_message = db.query(models.Message).filter(models.Message.message_id == message_id, models.Message.sender == 'AI').first()
+    db_message = db.query(models.Message).filter(models.Message.message_id == message_id, models.Message.sender == 'system').first()
     if db_message:
         db_message.is_selected = True # Đã đổi tên cột thành is_selected
+        db_message.selected_at = datetime.now(tz=timezone.utc) # Set selected_at bằng thời điểm hiện tại (UTC)
         db.commit()
         db.refresh(db_message)
         return db_message
@@ -130,13 +146,25 @@ def select_ai_response(db: Session, message_id: str):
 
 def unselect_ai_response(db: Session, message_id: str):
     """Xóa một phản hồi AI khỏi danh sách câu hỏi lựa chọn."""
-    db_message = db.query(models.Message).filter(models.Message.message_id == message_id, models.Message.sender == 'AI').first()
+    db_message = db.query(models.Message).filter(models.Message.message_id == message_id, models.Message.sender == 'system').first()
     if db_message:
         db_message.is_selected = False # Đã đổi tên cột thành is_selected
+        db_message.selected_at = None # Xóa giá trị selected_at
         db.commit()
         db.refresh(db_message)
         return db_message
     return None # Message không tồn tại hoặc không phải của AI
+
+def clear_all_selected_messages_controller(db: Session):
+    """Xóa tất cả các tin nhắn AI đã được lựa chọn (đặt is_selected=False và selected_at=None)."""
+    selected_messages = db.query(models.Message).filter(models.Message.is_selected == True, models.Message.sender == 'system').all() # Lấy tất cả tin nhắn AI đã chọn
+    count = 0
+    for message in selected_messages:
+        message.is_selected = False
+        message.selected_at = None # Xóa giá trị selected_at
+        count += 1
+    db.commit()
+    return count # Trả về số lượng tin nhắn đã bỏ chọn
 
 def write_sessions_to_json_file(db: Session, filepath: str = "sessions_data.json"):
     """Lấy danh sách sessions và messages, chuyển đổi sang JSON và ghi vào file."""
