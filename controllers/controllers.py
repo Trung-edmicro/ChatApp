@@ -38,6 +38,20 @@ def get_messages_by_session_id(db: Session, session_id: str):
     """Lấy danh sách messages trong một session cụ thể."""
     return db.query(models.Message).filter(models.Message.session_id == session_id).order_by(models.Message.statement_index).all()
 
+def get_messages_by_session_id_json(db: Session, session_id: str):
+    """Lấy danh sách messages trong một session cụ thể và trả về cấu trúc JSON."""
+    messages = get_messages_by_session_id(db, session_id) # Gọi hàm get_messages_by_session_id đã có
+    messages_data_json = []
+    for message in messages:
+        messages_data_json.append({
+            "message_id": message.message_id,
+            "is_selected": message.is_selected, # Thêm trường is_selected
+            "sender": message.sender,
+            "content": message.content,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else None # Format datetime to ISO string
+        })
+    return messages_data_json
+
 def create_session(db: Session, session_name: str, ai_model: str, ai_max_tokens: int, ai_response_time: str):
     """Tạo một session mới."""
     db_session = models.Session(
@@ -51,6 +65,10 @@ def create_session(db: Session, session_name: str, ai_model: str, ai_max_tokens:
     db.commit()
     db.refresh(db_session)
     return db_session
+
+def create_session_controller(db: Session, session_name: str, ai_model: str, ai_max_tokens: int, ai_response_time: str):
+    """Tạo một session mới thông qua controller."""
+    return create_session(db, session_name, ai_model, ai_max_tokens, ai_response_time) # Gọi hàm create_session đã có
 
 def delete_session(db: Session, session_id: str):
     """Xóa một session và các messages liên quan."""

@@ -463,61 +463,49 @@ class ChatApp(QWidget):
 
     def load_selected_chat(self, item):
         session_id = item.data(Qt.UserRole)
-        try:
-            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
-                chat_sessions = json.load(file)
-                for session in chat_sessions:
-                    if session['session_id'] == session_id:
-                        self.chat_display.clear()
+        self.chat_display.clear() # Clear chat display trước khi load messages mới
 
-                        for message in session['messages']:
-                            sender = "user" if message['sender'] == "user" else "bot"
-                            msg_id = message['message_id']
-                            msg_text = message['content']
+        db = next(get_db()) # Lấy database session
+        messages_data = get_messages_by_session_id_json(db, session_id) # Gọi hàm controller để lấy messages JSON
+        print(len(messages_data)) # In số lượng messages
+        db.close() # Đóng database session
 
-                            # Tạo ChatItem mới
-                            msg_widget = ChatItem(msg_id, msg_text, sender=sender, chat_app=self)
-                            msg_item = QListWidgetItem()
-                            msg_item.setSizeHint(msg_widget.sizeHint())
+        if messages_data:
+            for message_data in messages_data:
+                sender = "user" if message_data['sender'] == "user" else "system" # Sửa thành system nếu bạn đã thống nhất
+                msg_id = message_data['message_id']
+                msg_text = message_data['content']
 
-                            # Thêm vào khung chat
-                            self.chat_display.addItem(msg_item)
-                            self.chat_display.setItemWidget(msg_item, msg_widget)
+                # Tạo ChatItem mới
+                msg_widget = ChatItem(msg_id, msg_text, sender=sender, chat_app=self)
+                msg_item = QListWidgetItem()
+                msg_item.setSizeHint(msg_widget.sizeHint())
 
-            self.chat_display.scrollToBottom()
-        except FileNotFoundError:
-            pass
+                # Thêm vào khung chat
+                self.chat_display.addItem(msg_item)
+                self.chat_display.setItemWidget(msg_item, msg_widget)
+
+        self.chat_display.scrollToBottom()
 
     def create_new_session(self):
         """Tạo một phiên chat mới."""
-        #Logic tạo session
-        session_id = str(uuid.uuid4())
-        session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}"
-        new_session = {
-            "session_id": session_id,
-            "session_name": session_name,
-            "messages": [],
-            "ai_config": {"model": "gpt-4", "max_tokens": 1024, "response_time": "fast"},
-            "created_at": datetime.now().isoformat()
-        }
+        # === Tạo session mới trong database ===
+        db = next(get_db()) # Lấy database session
+        session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}" # Tạo session name tự động
+        ai_model = "gpt-4" # Cứng cấu hình AI model, max_tokens, response_time (có thể làm động sau)
+        ai_max_tokens = 1024
+        ai_response_time = "fast"
 
-        try:
-            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
-                chat_sessions = json.load(file)
-        except (FileNotFoundError, json.JSONDecodeError):
-            chat_sessions = []
+        new_session = create_session_controller(db, session_name, ai_model, ai_max_tokens, ai_response_time) # Gọi controller để tạo session
+        db.close() # Đóng database session
 
-        chat_sessions.insert(0, new_session) #Add session to chat_session
-
-        with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
-            json.dump(chat_sessions, file, ensure_ascii=False, indent=4) #Save
-
-        # Cập nhật danh sách hiển thị
-        self.history_list.clear()
-        self.load_chat_history()
-        # Clear chat display and input field
-        self.chat_display.clear()
-        self.input_field.clear()
+        if new_session: # Kiểm tra nếu session tạo thành công
+            print(f"Session mới đã được tạo: {new_session.session_name} (ID: {new_session.session_id})")
+            self.load_sessions_from_db() # Gọi lại hàm load_sessions_from_db để cập nhật danh sách session trên GUI
+            self.chat_display.clear() # Xóa chat display khi tạo session mới
+            self.input_field.clear() # Xóa input field khi tạo session mới
+        else:
+            print("Lỗi khi tạo session mới.") # Xử lý lỗi nếu không tạo được session
 
     def adjust_input_height(self):
         document_height = self.input_field.document().size().height()
