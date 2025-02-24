@@ -1,6 +1,6 @@
 import sys
 import json
-import styles
+from views import styles
 import uuid
 import openai
 import google.generativeai as genai
@@ -8,7 +8,7 @@ from datetime import datetime
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
-CHAT_HISTORY_FILE = "data.json"
+CHAT_HISTORY_FILE = "ChatApp/data.json"
 
 # Cấu hình AI API
     # OpenAI
@@ -37,11 +37,11 @@ class ToggleSwitch(QWidget):
         self.bg_label.setGeometry(0, 0, 62, 30)
 
         self.sun_icon = QLabel(self)
-        self.sun_icon.setPixmap(QPixmap("images/gpt_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.sun_icon.setPixmap(QPixmap("views/images/gpt_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         self.sun_icon.setGeometry(6, 5, 20, 20)
 
         self.moon_icon = QLabel(self)
-        self.moon_icon.setPixmap(QPixmap("images/gemini_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.moon_icon.setPixmap(QPixmap("views/images/gemini_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         self.moon_icon.setGeometry(35, 5, 20, 20)
 
         # Nút toggle
@@ -87,7 +87,7 @@ class ChatItem(QWidget):
 
         # Nút More Options
         self.more_button = QPushButton()
-        self.more_button.setIcon(QIcon(QPixmap("images/more_icon.png")))
+        self.more_button.setIcon(QIcon(QPixmap("views/images/more_icon.png")))
         self.more_button.setIconSize(QSize(20, 20))  
         self.more_button.setFixedSize(24, 24)
         self.more_button.setCursor(QCursor(Qt.PointingHandCursor))
@@ -204,8 +204,9 @@ class ChatItem(QWidget):
         clipboard.setText(markdown_text)
 
 class ChatApp(QWidget):
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
+        self.app = app
         self.initUI()
         self.load_chat_history()
         self.selected_messages_data = []
@@ -214,7 +215,7 @@ class ChatApp(QWidget):
         app_font = QFont("Inter", 12)
         self.setWindowTitle("ChatApp")
         self.setGeometry(100, 100, 1280, 820)
-        app.setFont(app_font)
+        self.app.setFont(app_font)
         self.setStyleSheet("background-color: #212121; color: white;")
 
         main_layout = QHBoxLayout()
@@ -327,7 +328,7 @@ class ChatApp(QWidget):
 
             # send button
         self.send_button = QPushButton(self)
-        self.send_button.setIcon(QIcon("images/send_icon.png"))
+        self.send_button.setIcon(QIcon("views/images/send_icon.png"))
         self.send_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.send_button.setStyleSheet(
             f"background-color: {styles.SEND_BUTTON_COLOR}; color: white; border-radius: {styles.SEND_BUTTON_SIZE // 2}px;"
@@ -604,11 +605,5 @@ class ChatApp(QWidget):
 
     def export_list_messages(self):
         print("Export")
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = ChatApp()
-    window.show()
-    sys.exit(app.exec_())
 
 
