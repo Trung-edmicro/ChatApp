@@ -1,21 +1,26 @@
 import sys
 import json
+import re
 from views import styles
 import uuid
 import openai
 import google.generativeai as genai
 from datetime import datetime
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QTextBrowser
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
-from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
-CHAT_HISTORY_FILE = "ChatApp/data.json"
+from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+import markdown2
+from views.export_docx import export_to_docx
+
+CHAT_HISTORY_FILE = "data.json"
 
 # Cấu hình AI API
     # OpenAI
 client = openai.OpenAI(api_key="")
 
     # Gemini
-api_key = ""
+api_key = "AIzaSyCHiGsj_hM0SsCrUX5rcWWaes3-KTvNvOw"
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
 chat = model.start_chat(history=[])
@@ -78,6 +83,8 @@ class ChatItem(QWidget):
     def __init__(self, message_id, message="", sender="user", parent=None, chat_app=None):
         super().__init__(parent)
 
+        latex_checked = contains_latex(message)
+
         self.message_id = message_id
         self.chat_app = chat_app 
 
@@ -113,6 +120,83 @@ class ChatItem(QWidget):
         min_width = 60
         max_width = 500
 
+        # Web view
+        self.web_view = QWebEngineView()
+        self.web_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        # Chuyển Markdown thành HTML có hỗ trợ MathJax
+        def format_message(message):
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script>
+                    window.MathJax = {{
+                        tex: {{
+                            inlineMath: [['$', '$'], ['\\(', '\\)']]
+                        }},
+                        svg: {{
+                            fontCache: 'global'
+                        }}
+                    }};
+                </script>
+                <script type="text/javascript" async
+                    src="https://polyfill.io/v3/polyfill.min.js?features=es6">
+                </script>
+                <script type="text/javascript" async
+                    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+                </script>
+                <style>
+                    body {{
+                        font-size: 17px;
+                        color: white;
+                        background-color: #2E2E2E;
+                    }}
+                    ::-webkit-scrollbar {{
+                        width: 10px; /* Độ rộng thanh cuộn */
+                        height: 10px;
+                    }}
+                    ::-webkit-scrollbar-track {{
+                        background: #2E2E2E;
+                        border-radius: 10px;
+                    }}
+                    ::-webkit-scrollbar-thumb {{
+                        background: #555;
+                        border-radius: 10px;
+                        transition: background 0.3s;
+                    }}
+                    ::-webkit-scrollbar-thumb:hover {{
+                        background: #888;
+                    }}
+                    .chat-container {{
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-start;
+                        margin-bottom: 10px;
+                        max-width: 100%;
+                    }}
+                    .ai-message {{
+                        max-width: 100%;
+                        border-radius: 12px;
+                        text-align: left;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="chat-container">
+                    <div class="ai-message">
+                        {markdown2.markdown(message, extras=["fenced-code-blocks", "tables", "strike", "mathjax"])}
+                    </div>
+                </div>
+                <script>
+                    MathJax.typesetPromise();
+                </script>
+            </body>
+            </html>
+            """
+            return html_content
+
+        # Render
         if sender == "user":
             self.text_edit.setStyleSheet("""
                 QTextEdit {
@@ -127,24 +211,38 @@ class ChatItem(QWidget):
             main_layout.addStretch()
             main_layout.addWidget(self.text_edit, 0, Qt.AlignRight)
             self.text_edit.setFixedWidth(min(max_width, max(text_width, min_width)))
+        else:
+            if latex_checked:
+                main_layout.addLayout(more_layout)
+                main_layout.addWidget(self.web_view)
+                main_layout.setStretch(0, 1)
+                main_layout.setStretch(1, 3)
+            else:
+                self.text_edit.setStyleSheet("""
+                    QTextEdit {
+                        border: 1px solid #545454;
+                        font-size: 14px;
+                        border-radius: 12px;
+                        padding: 8px;
+                        color: white;
+                    }
+                """)
 
-        else:  # **AI Message**
-            self.text_edit.setStyleSheet("""
-                QTextEdit {
-                    border: 1px solid #545454;
-                    font-size: 14px;
-                    border-radius: 12px;
-                    padding: 8px;
-                    color: white;
-                }
-            """)
+                main_layout.addLayout(more_layout)
+                main_layout.addWidget(self.text_edit)
 
-            main_layout.addLayout(more_layout)
-            main_layout.addWidget(self.text_edit)
+        self.web_view.setHtml(format_message(message))
 
         doc = self.text_edit.document()
         doc.setTextWidth(self.text_edit.width())
         self.text_edit.setFixedHeight(int(doc.size().height()) + 15)
+
+        # Dùng QTimer để cập nhật MathJax sau khi WebEngine tải xong
+        QTimer.singleShot(100, self.update_mathjax)
+
+    def update_mathjax(self):
+        """Kích hoạt MathJax sau khi nội dung được load"""
+        self.web_view.page().runJavaScript("MathJax.typesetPromise();")
 
     def show_more_menu(self):
         menu = QMenu(self)
@@ -191,7 +289,6 @@ class ChatItem(QWidget):
     def add_text(self):
         message_content = self.text_edit.toPlainText()
         if self.chat_app:
-            print("in")
             self.chat_app.add_selected_message(message_content)
 
     def copy_text(self):
@@ -215,6 +312,7 @@ class ChatApp(QWidget):
         app_font = QFont("Inter", 12)
         self.setWindowTitle("ChatApp")
         self.setGeometry(100, 100, 1280, 820)
+        self.setMinimumSize(1000, 560)
         self.app.setFont(app_font)
         self.setStyleSheet("background-color: #212121; color: white;")
 
@@ -255,9 +353,8 @@ class ChatApp(QWidget):
             QListWidget::item {{
                 color: {styles.HISTORY_TEXT_COLOR};
                 background-color: {styles.HISTORY_ITEM_BACKGROUND};
-                padding: {styles.HISTORY_ITEM_PADDING}; 
                 border: none; 
-                margin-bottom: 5px; 
+                padding-right: 6px;
                 border-radius: 10px; 
             }}
             QListWidget::item:hover {{
@@ -294,7 +391,7 @@ class ChatApp(QWidget):
             QListWidget {{
                 border: none;
                 background-color: #212121;
-            }}
+            }}                            
             QListWidget::item:hover {{
                 background-color: transparent;
             }}
@@ -347,7 +444,7 @@ class ChatApp(QWidget):
         # Widget chứa danh sách tin nhắn
         list_messages_widget = QWidget()
         list_messages_widget.setStyleSheet("background-color: #171717; border-radius: 10px;")  
-        list_messages_widget.setFixedWidth(250)  # Giữ kích thước cố định 250px
+        list_messages_widget.setFixedWidth(250)
 
             # Layout danh sách tin nhắn
         list_messages_layout = QVBoxLayout()
@@ -415,22 +512,87 @@ class ChatApp(QWidget):
         self.setLayout(main_layout)
         
 # === Function ===
+    def create_new_session(self):
+        """Tạo một phiên chat mới."""
+        #Logic tạo session
+        session_id = str(uuid.uuid4())
+        session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}"
+        new_session = {
+            "session_id": session_id,
+            "session_name": session_name,
+            "messages": [],
+            "ai_config": {"model": "gpt-4", "max_tokens": 1024, "response_time": "fast"},
+            "created_at": datetime.now().isoformat()
+        }
+
+        try:
+            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
+                chat_sessions = json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError):
+            chat_sessions = []
+
+        chat_sessions.insert(0, new_session) #Add session to chat_session
+
+        with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
+            json.dump(chat_sessions, file, ensure_ascii=False, indent=4) #Save
+
+        # Cập nhật danh sách hiển thị
+        self.history_list.clear()
+        self.load_chat_history()
+        # Clear chat display and input field
+        self.chat_display.clear()
+        self.input_field.clear()
+    
     def load_chat_history(self):
         try:
             with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
                 chat_sessions = json.load(file)
                 self.history_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
                 max_width = self.history_list.width() - 20
+
                 for session in chat_sessions:
                     full_text = session['session_name']
 
                     metrics = QFontMetrics(self.history_list.font())
                     elided_text = metrics.elidedText(full_text, Qt.ElideRight, max_width)
 
-                    item = QListWidgetItem(elided_text)
+                    item = QListWidgetItem()
                     item.setData(Qt.UserRole, session['session_id'])
                     item.setSizeHint(QSize(self.history_list.width(), 40))
+                    
+                    # Tạo widget chứa tên session và nút xóa
+                    widget = QWidget()
+                    widget.setStyleSheet("""
+                        background-color: transparent;
+                    """)
+                    layout = QHBoxLayout()
+                    layout.setContentsMargins(10, 0, 10, 0)
+                    layout.setSpacing(5)
+
+                    # Label hiển thị session name
+                    label = QLabel(elided_text)
+                    label.setToolTip(full_text)
+                    label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                    label.setStyleSheet("color: white;")
+
+                    # Nút xóa (icon thùng rác)
+                    delete_button = QPushButton()
+                    delete_button.setIcon(QIcon("views/images/trash_icon.png"))
+                    delete_button.setCursor(QCursor(Qt.PointingHandCursor))
+                    delete_button.setFixedSize(18, 18)
+                    delete_button.setStyleSheet("border: none; background: transparent;")
+                    delete_button.clicked.connect(lambda _, item=item, session_id=session['session_id']: self.remove_chat_session(item, session_id))
+
+                    # Thêm vào layout
+                    layout.addWidget(label)
+                    layout.addStretch()
+                    layout.addWidget(delete_button)
+
+                    widget.setLayout(layout)
+                    widget.setMinimumHeight(40)
+
                     self.history_list.addItem(item)
+                    self.history_list.setItemWidget(item, widget)
         except FileNotFoundError:
             with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
                 json.dump([], file)
@@ -462,36 +624,59 @@ class ChatApp(QWidget):
         except FileNotFoundError:
             pass
 
-    def create_new_session(self):
-        """Tạo một phiên chat mới."""
-        #Logic tạo session
-        session_id = str(uuid.uuid4())
-        session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}"
-        new_session = {
-            "session_id": session_id,
-            "session_name": session_name,
-            "messages": [],
-            "ai_config": {"model": "gpt-4", "max_tokens": 1024, "response_time": "fast"},
-            "created_at": datetime.now().isoformat()
-        }
+    def save_chat_history(self, message_id, user_message, bot_reply):
+            try:
+                with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
+                    chat_sessions = json.load(file)
+            except (FileNotFoundError, json.JSONDecodeError):
+                chat_sessions = []
 
+            if not chat_sessions:
+                session = {
+                    "session_id": str(uuid.uuid4()),
+                    "session_name": f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}",
+                    "messages": [],
+                    "ai_config": {"model": "gpt-4", "max_tokens": 1024, "response_time": "fast"},
+                    "created_at": datetime.now().isoformat()
+                }
+                chat_sessions.append(session)
+            else:
+                session = chat_sessions[0]
+
+            session["messages"].append({
+                "message_id": message_id,
+                "sender": "user",
+                "content": user_message,
+                "timestamp": datetime.now().isoformat()
+            })
+            session["messages"].append({
+                "message_id": message_id,
+                "sender": "AI",
+                "content": bot_reply,
+                "timestamp": datetime.now().isoformat()
+            })
+
+            with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
+                json.dump(chat_sessions, file, ensure_ascii=False, indent=4)
+
+    def remove_chat_session(self, item, session_id):
+        row = self.history_list.row(item)
+
+        if row >= 0:
+            self.history_list.takeItem(row)  # Xóa khỏi UI
+
+        # Xóa khỏi JSON
         try:
             with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
                 chat_sessions = json.load(file)
-        except (FileNotFoundError, json.JSONDecodeError):
-            chat_sessions = []
 
-        chat_sessions.insert(0, new_session) #Add session to chat_session
+            updated_sessions = [s for s in chat_sessions if s["session_id"] != session_id]
 
-        with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
-            json.dump(chat_sessions, file, ensure_ascii=False, indent=4) #Save
+            with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
+                json.dump(updated_sessions, file, indent=4, ensure_ascii=False)
 
-        # Cập nhật danh sách hiển thị
-        self.history_list.clear()
-        self.load_chat_history()
-        # Clear chat display and input field
-        self.chat_display.clear()
-        self.input_field.clear()
+        except Exception as e:
+            print(f"Lỗi khi xóa session: {e}")
 
     def adjust_input_height(self):
         document_height = self.input_field.document().size().height()
@@ -508,6 +693,14 @@ class ChatApp(QWidget):
 
         message_id = f"msg_{uuid.uuid4().hex[:6]}"
 
+        prompt_template = f"""Bạn là một Giáo viên thông minh. Hãy trả lời nội dung dưới đây một cách chi tiết và rõ ràng:
+        {user_message}
+        Kết quả trả về phải bao gồm quy chuẩn bắt buộc sau (đừng trả về các yêu cầu này trong phần trả về):
+        - Các công thức phải trả về mã Latex với điều kiện:
+            + Sử dụng $...$ để bọc các công thức thay vì sử dụng \[...\] hay \(...\), không sử dụng \boxed trong công thức.
+            + Không được sử dụng \frac, thay vào đó sử dụng \dfrac
+        """
+
         user_item = QListWidgetItem()
         user_widget = ChatItem(message_id, user_message, sender="user")
         user_item.setSizeHint(user_widget.sizeHint())
@@ -519,23 +712,18 @@ class ChatApp(QWidget):
         try:
             if self.is_toggle_on:
                 # GPT
-                print("gpt")
-                # response = client.chat.completions.create(
-                #     model="gpt-4",
-                #     messages=[{"role": "user", "content": user_message}]
-                # )
-                # bot_reply = response.choices[0].message.content.strip()
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt_template}]
+                )
+                bot_reply = response.choices[0].message.content.strip()
             else:
                 # Gemini
-                print("gemini")
-                # chat = model.start_chat(history=[])
-
-                # response = chat.send_message(user_message)
-                # bot_reply = response.text
+                response = chat.send_message(prompt_template)
+                bot_reply = response.text
         except Exception as e:
             bot_reply = f"Lỗi: {str(e)}"
 
-        bot_reply = "Xin chào! Tôi là OpenAI ChatGPT."
         bot_item = QListWidgetItem()
         bot_widget = ChatItem(message_id, bot_reply, sender="AI")
         bot_item.setSizeHint(bot_widget.sizeHint())
@@ -545,41 +733,6 @@ class ChatApp(QWidget):
 
         self.chat_display.scrollToBottom()
         self.save_chat_history(message_id, user_message, bot_reply)
-
-    def save_chat_history(self, message_id, user_message, bot_reply):
-        try:
-            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
-                chat_sessions = json.load(file)
-        except (FileNotFoundError, json.JSONDecodeError):
-            chat_sessions = []
-
-        if not chat_sessions:
-            session = {
-                "session_id": str(uuid.uuid4()),
-                "session_name": f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}",
-                "messages": [],
-                "ai_config": {"model": "gpt-4", "max_tokens": 1024, "response_time": "fast"},
-                "created_at": datetime.now().isoformat()
-            }
-            chat_sessions.append(session)
-        else:
-            session = chat_sessions[0]
-
-        session["messages"].append({
-            "message_id": message_id,
-            "sender": "user",
-            "content": user_message,
-            "timestamp": datetime.now().isoformat()
-        })
-        session["messages"].append({
-            "message_id": message_id,
-            "sender": "AI",
-            "content": bot_reply,
-            "timestamp": datetime.now().isoformat()
-        })
-
-        with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
-            json.dump(chat_sessions, file, ensure_ascii=False, indent=4)
 
     def add_selected_message(self, message):
         if message not in self.selected_messages_data:
@@ -594,16 +747,98 @@ class ChatApp(QWidget):
             metrics = QFontMetrics(self.selected_messages.font())
             elided_text = metrics.elidedText(display_text, Qt.ElideRight, max_width)  
             
-            item = QListWidgetItem(elided_text)
-            item.setToolTip(display_text) 
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(max_width, 40))
 
-            item.setSizeHint(QSize(max_width, 30))
+            # Tạo một widget chứa nội dung và nút xóa
+            widget = QWidget()
+            widget.setStyleSheet("""
+                background-color: transparent;
+            """)
+            layout = QHBoxLayout()
+            layout.setContentsMargins(5, 2, 5, 2)
+            layout.setSpacing(5)
+
+            # Tạo label hiển thị nội dung
+            label = QLabel(elided_text)
+            label.setToolTip(display_text)
+            label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)  
+            label.setStyleSheet("""color: white;""")  
+            label.setAlignment(Qt.AlignVCenter)
+
+            # Nút xóa (icon)
+            delete_item_button = QPushButton()
+            delete_item_button.setIcon(QIcon("views/images/trash_icon.png"))
+            delete_item_button.setCursor(QCursor(Qt.PointingHandCursor))
+            delete_item_button.setFixedSize(18, 18)
+            delete_item_button.setStyleSheet("border: none; background: transparent;")
+            delete_item_button.clicked.connect(lambda _, item=item: self.remove_selected_message(item))
+
+            # Thêm label và nút vào layout
+            layout.addWidget(label)
+            layout.addStretch()
+            layout.addWidget(delete_item_button)
+
+            widget.setLayout(layout)
+
+            # Thêm item vào danh sách
             self.selected_messages.addItem(item)
+            self.selected_messages.setItemWidget(item, widget)
+
+    def remove_selected_message(self, item):
+        row = self.selected_messages.row(item)
+        if row >= 0:
+            self.selected_messages.takeItem(row)
+            del self.selected_messages_data[row]
+            
+        self.update_item_numbers()
+        self.selected_messages.update()  
+
+    def update_item_numbers(self):
+        for index in range(self.selected_messages.count()):
+            item = self.selected_messages.item(index)
+            widget = self.selected_messages.itemWidget(item)
+            
+            if widget:
+                label = widget.findChild(QLabel)
+                if label:
+                    message_text = self.selected_messages_data[index]  
+                    new_display_text = f"{index + 1}. {message_text}"  
+
+                    max_width = self.selected_messages.width() - 40 
+                    self.selected_messages.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+                    metrics = QFontMetrics(self.selected_messages.font())
+                    elided_text = metrics.elidedText(new_display_text, Qt.ElideRight, max_width)  
+                    label.setText(elided_text)
+                    self.selected_messages.update()  
 
     def clear_list_messages(self):
-        print("xóa")
+        self.selected_messages_data.clear()
+        self.selected_messages.clear()
 
     def export_list_messages(self):
-        print("Export")
+        if export_to_docx(self.selected_messages_data):
+            print("Xuất file thành công!")
+        else:
+            print("Xuất file thất bại!")
 
-
+def contains_latex(text):
+    # Regex tìm các ký hiệu LaTeX phổ biến
+    latex_patterns = [
+        r"\$\$(.*?)\$\$",         # Công thức block $$ ... $$
+        r"\$(.*?)\$",             # Công thức inline $ ... $
+        r"\\\((.*?)\\\)",         # Công thức inline \( ... \)
+        r"\\\[(.*?)\\\]",         # Công thức block \[ ... \]
+        r"\\frac\{.*?\}\{.*?\}",  # Phân số
+        r"\\sqrt\{.*?\}",         # Căn bậc hai
+        r"\\sum",                 # Tổng sigma
+        r"\\int",                 # Tích phân
+        r"\\begin\{align\}"       # Hệ phương trình
+    ]
+    
+    # Kiểm tra nếu có bất kỳ mẫu nào khớp
+    for pattern in latex_patterns:
+        if re.search(pattern, text, re.DOTALL):
+            return True
+    return False
