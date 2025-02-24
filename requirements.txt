@@ -1,3 +1,15 @@
 openai
 google-generativeai
 PyQt5
+sqlalchemy
+psycopg2-binary
+alembic
+PyQtWebEngine
+
+alembic init migrations
+target_metadata = Base.metadata
+from models.database import engine, Base
+alembic revision -m "Initial migration - Create tables (sessions, messages, summaries)"
+sqlalchemy.url = postgresql://postgres:1234@localhost:5432/postgres
+alembic upgrade head
+
