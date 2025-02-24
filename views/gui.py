@@ -529,6 +529,11 @@ class ChatApp(QWidget):
                 session_id = current_session_item.data(Qt.UserRole)
         if session_id: # Kiểm tra lại session_id (có thể vẫn là None nếu không có session nào được chọn)
             db = next(get_db()) # Lấy database session
+            # === Lấy statement_index của tin nhắn CUỐI CÙNG trong session ===
+            last_message = db.query(models.Message).filter(models.Message.session_id == session_id).order_by(models.Message.statement_index.desc()).first()
+            to_statement_index = 0 # Default value nếu không có message nào trong session
+            if last_message:
+                    to_statement_index = last_message.statement_index # Lấy statement_index của tin nhắn cuối cùng
             # Lấy history từ Gemini chat (hoặc OpenAI nếu dùng OpenAI)
             # === Serialize self.gemini_chat.history to JSON string ===
             history_json_string = ""
@@ -541,7 +546,6 @@ class ChatApp(QWidget):
                     for chat_turn in self.gemini_chat.history
                 ], ensure_ascii=False)
             if history_json_string:
-                to_statement_index = 0
                 summary_text = history_json_string # Lưu JSON string vào summary_text
 
                 existing_summary = db.query(models.Summary).filter(models.Summary.session_id == session_id).first()
