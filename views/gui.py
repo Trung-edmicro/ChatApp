@@ -4,13 +4,14 @@ from views import styles
 import uuid
 import openai
 import google.generativeai as genai
+from google.generativeai.types import content_types
 from datetime import datetime
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
 from internal.db.connection import get_db
 from controllers.controllers import *
-CHAT_HISTORY_FILE = "data.json"
+import json
 
 class ToggleSwitch(QWidget):
     toggled_signal = pyqtSignal(bool)
@@ -214,6 +215,7 @@ class ChatApp(QWidget):
         self.load_sessions_from_db() # Gọi hàm load sessions từ DB
         self.load_selected_messages_list()
         self.selected_messages_data = []
+        self.current_session_id = None  # Thêm biến self.current_session_id, khởi tạo là None
 
     def initUI(self):
         app_font = QFont("Inter", 12)
@@ -441,12 +443,42 @@ class ChatApp(QWidget):
             print("Không có session nào trong Database.") # Vẫn in log nếu không có session
 
     def load_selected_chat(self, item):
+        """Load danh sách messages của session đã chọn, LƯU SUMMARY session trước đó, và LOAD SUMMARY session hiện tại."""
+        # === Lưu summary của session HIỆN TẠI (session cũ) ===
+        if self.current_session_id: # Kiểm tra nếu có session cũ (không phải lần load session đầu tiên)
+            self.save_current_session_summary(self.current_session_id) # Gọi save_current_session_summary với session_id cũ
+        # === Xóa history Gemini trước khi load session mới ===
+        if not self.is_toggle_on: # Chỉ xóa history Gemini khi AI model là Gemini (toggle OFF)
+            self.clear_gemini_history() # Gọi hàm xóa history Gemini
         session_id = item.data(Qt.UserRole)
         self.chat_display.clear() # Clear chat display trước khi load messages mới
+        self.current_session_id = session_id # Cập nhật self.current_session_id với session_id mới
 
         db = next(get_db()) # Lấy database session
+        # === Load summary của session mới được chọn từ database ===
+        summary_json_string = get_summary_by_session_id_json(db, session_id) # Lấy summary JSON string từ controller
+        if summary_json_string:
+            try:
+                # Deserialize JSON string về history object của Gemini
+                # history_list = json.loads(summary_json_string) # Deserialize JSON string to Python list
+                gemini_history = summary_json_string
+                # for chat_turn_data in history_list:
+                #     gemini_history.append(
+                #     content_types.Part( # Sử dụng content_types.Part
+                #         role=chat_turn_data["role"],
+                #         parts=chat_turn_data["parts"]
+                #     )
+                # )
+                self.gemini_chat = self.gemini_model.start_chat(history=gemini_history) # Khôi phục history cho gemini_chat
+                print(f"History đã được load cho session ID: {session_id}") # Log load history
+            except json.JSONDecodeError as e:
+                print(f"Lỗi giải mã JSON history cho session ID {session_id}: {e}") # Log lỗi JSON decode
+                self.gemini_chat = self.gemini_model.start_chat(history=[]) # Nếu lỗi JSON, tạo history rỗng
+        else:
+            # Nếu không có summary trong database, tạo history rỗng
+            self.gemini_chat = self.gemini_model.start_chat(history=[]) # Tạo history rỗng nếu không có summary
+            print(f"Không tìm thấy summary cho session ID: {session_id}. Bắt đầu session mới.") # Log no summary
         messages_data = get_messages_by_session_id_json(db, session_id) # Gọi hàm controller để lấy messages JSON
-        print(len(messages_data)) # In số lượng messages
         db.close() # Đóng database session
 
         if messages_data:
@@ -468,6 +500,11 @@ class ChatApp(QWidget):
 
     def create_new_session(self):
         """Tạo một phiên chat mới."""
+        # === Lưu summary của session hiện tại (nếu có) ===
+        self.save_current_session_summary() # Gọi hàm save summary trước khi tạo session mới
+        # === Xóa history Gemini trước khi tạo session mới ===
+        if not self.is_toggle_on: # Chỉ xóa history Gemini khi AI model là Gemini (toggle OFF)
+            self.clear_gemini_history() # Gọi hàm xóa history Gemini
         # === Tạo session mới trong database ===
         db = next(get_db()) # Lấy database session
         session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}" # Tạo session name tự động
@@ -490,6 +527,48 @@ class ChatApp(QWidget):
             self.input_field.clear() # Xóa input field khi tạo session mới
         else:
             print("Lỗi khi tạo session mới.") # Xử lý lỗi nếu không tạo được session
+
+    def save_current_session_summary(self, session_id_to_save=None):
+        """Lưu hoặc cập nhật summary của session hiện tại (hoặc session_id được truyền vào)."""
+        session_id = session_id_to_save # Sử dụng session_id truyền vào, hoặc session hiện tại nếu không có tham số
+        
+        if not session_id: # Nếu không có session_id truyền vào, lấy session hiện tại từ history_list
+            current_session_item = self.history_list.currentItem()
+            if current_session_item:
+                session_id = current_session_item.data(Qt.UserRole)
+        if session_id: # Kiểm tra lại session_id (có thể vẫn là None nếu không có session nào được chọn)
+            db = next(get_db()) # Lấy database session
+            # Lấy history từ Gemini chat (hoặc OpenAI nếu dùng OpenAI)
+            # === Serialize self.gemini_chat.history to JSON string ===
+            history_json_string = ""
+            if self.gemini_chat and self.gemini_chat.history:
+                # history_json_string = json.dumps([
+                #     {
+                #         "role": chat_turn.role,
+                #         "parts": [part.text for part in chat_turn.parts] # Lưu parts dưới dạng list text
+                #     }
+                #     for chat_turn in self.gemini_chat.history
+                # ], ensure_ascii=False) # Serialize history to JSON string
+                history_json_string = str(self.gemini_chat.history)
+
+            if history_json_string:
+                to_statement_index = 0
+                summary_text = history_json_string # Lưu JSON string vào summary_text
+
+                existing_summary = db.query(models.Summary).filter(models.Summary.session_id == session_id).first()
+
+                if existing_summary:
+                    existing_summary.summary_text = summary_text
+                    existing_summary.to_statement_index = to_statement_index
+                    db.commit()
+                    print(f"Summary (JSON) đã được cập nhật cho session ID: {session_id}") # Log update
+                else:
+                    create_summary_controller(db, session_id, to_statement_index, summary_text)
+                    print(f"Summary (JSON) đã được tạo cho session ID: {session_id}") # Log create
+            else:
+                print(f"Không có history để lưu summary cho session ID: {session_id}")
+
+            db.close()
 
     def adjust_input_height(self):
         document_height = self.input_field.document().size().height()
@@ -541,6 +620,7 @@ class ChatApp(QWidget):
                 gemini_response = self.gemini_chat.send_message(user_message_text) # **Corrected: user_message_text for Gemini**
                 bot_reply_text = gemini_response.text # Correctly get text from Gemini response
                 ai_sender = "system"
+                print(f"Gemini history: {self.gemini_chat.history}") # Debugging Gemini history
 
         except Exception as e:
             bot_reply_text = f"Lỗi khi gọi AI API: {str(e)}"
@@ -560,40 +640,13 @@ class ChatApp(QWidget):
 
         self.chat_display.scrollToBottom()
 
-    def save_chat_history(self, message_id, user_message, bot_reply):
-        try:
-            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:
-                chat_sessions = json.load(file)
-        except (FileNotFoundError, json.JSONDecodeError):
-            chat_sessions = []
-
-        if not chat_sessions:
-            session = {
-                "session_id": str(uuid.uuid4()),
-                "session_name": f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}",
-                "messages": [],
-                "ai_config": {"model": "gpt-4", "max_tokens": 1024, "response_time": "fast"},
-                "created_at": datetime.now().isoformat()
-            }
-            chat_sessions.append(session)
+    def clear_gemini_history(self):
+        """Xóa lịch sử chat của Gemini."""
+        if self.gemini_model: # Kiểm tra xem gemini_model đã được khởi tạo chưa
+            self.gemini_chat = self.gemini_model.start_chat(history=[]) # Tạo một gemini_chat mới, lịch sử sẽ rỗng
+            print("Gemini history đã được xóa.") # Log
         else:
-            session = chat_sessions[0]
-
-        session["messages"].append({
-            "message_id": message_id,
-            "sender": "user",
-            "content": user_message,
-            "timestamp": datetime.now().isoformat()
-        })
-        session["messages"].append({
-            "message_id": message_id,
-            "sender": "AI",
-            "content": bot_reply,
-            "timestamp": datetime.now().isoformat()
-        })
-
-        with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as file:
-            json.dump(chat_sessions, file, ensure_ascii=False, indent=4)
+            print("Gemini model chưa được khởi tạo.") # Log nếu model chưa khởi tạo
 
     def add_to_selected_messages(self, message_id):
         """Xử lý việc thêm message vào danh sách tin nhắn đã chọn."""
@@ -641,4 +694,9 @@ class ChatApp(QWidget):
     def export_list_messages(self):
         print("Export")
 
+    def closeEvent(self, event):
+        """Xử lý sự kiện đóng cửa sổ ứng dụng."""
+        print("Ứng dụng đang đóng...") # Log
+        self.save_current_session_summary() # Lưu summary của session hiện tại trước khi đóng
+        event.accept() # Chấp nhận sự kiện đóng cửa sổ, ứng dụng sẽ đóng
 

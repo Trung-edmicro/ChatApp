@@ -4,6 +4,7 @@ from models import models
 from sqlalchemy import func, asc
 from datetime import datetime, timezone
 import uuid
+import json # Đảm bảo import json
 
 # --- Các hàm cho Session ---
 
@@ -100,6 +101,25 @@ def create_message_controller(db: Session, session_id: str, sender: str, content
     db.commit()
     db.refresh(db_message)
     return db_message
+
+def create_summary_controller(db: Session, session_id: str, to_statement_index: int, summary_text: str):
+    """Tạo và lưu một summary mới vào database."""
+    db_summary = models.Summary(
+        session_id=session_id,
+        to_statement_index=to_statement_index, # Chỉ số tin nhắn cuối cùng trong bản tóm tắt
+        summary_text=summary_text
+    )
+    db.add(db_summary)
+    db.commit()
+    db.refresh(db_summary)
+    return db_summary
+
+def get_summary_by_session_id_json(db: Session, session_id: str):
+    """Lấy summary của một session cụ thể từ database và trả về cấu trúc JSON."""
+    summary = db.query(models.Summary).filter(models.Summary.session_id == session_id).first()
+    if summary:
+        return summary.summary_text # Trả về summary_text (JSON string)
+    return None # Trả về None nếu không tìm thấy summary
 
 # --- Các hàm cho AI-Selected Questions ---
 
