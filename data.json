@@ -5,111 +5,87 @@
         "messages": [
             {
                 "message_id": "msg_001",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "xin chào ? Bạn là AI nào ?",
                 "timestamp": "2025-02-22T10:13:27.452489"
             },
             {
                 "message_id": "msg_002",
-                "selected": false,
+                "is_selected": false,
                 "sender": "AI",
                 "content": "Chào bạn! Tôi là một mô hình ngôn ngữ lớn, được đào tạo bởi Google.",
                 "timestamp": "2025-02-22T10:13:27.452522"
             },
             {
                 "message_id": "msg_003",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "Xin chào ! Bạn là AI nào ?",
                 "timestamp": "2025-02-22T10:13:50.135441"
             },
             {
                 "message_id": "msg_004",
-                "selected": false,
+                "is_selected": false,
                 "sender": "AI",
                 "content": "Xin chào! Tôi là OpenAI's ChatGPT, một hệ thống trí tuệ nhân tạo được huấn luyện để thực hiện các cuộc hội thoại với con người trên nhiều chủ đề khác nhau.",
                 "timestamp": "2025-02-22T10:13:50.135459"
             },
             {
                 "message_id": "msg_005",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "Tôi tên là Trung",
                 "timestamp": "2025-02-22T10:15:42.627237"
             },
             {
                 "message_id": "msg_006",
-                "selected": false,
+                "is_selected": true,
                 "sender": "AI",
                 "content": "Chào Trung! Rất vui được biết bạn. Bạn cần tôi giúp gì không?",
                 "timestamp": "2025-02-22T10:15:42.627250"
             },
             {
                 "message_id": "msg_007",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "Gọi tên tôi đi",
                 "timestamp": "2025-02-22T10:15:56.786607"
             },
             {
                 "message_id": "msg_008",
-                "selected": false,
+                "is_selected": true,
                 "sender": "AI",
                 "content": "Tôi rất vui được gọi tên bạn, nhưng bạn chưa cho tôi biết tên của bạn là gì. Bạn có thể cho tôi biết tên của bạn được không?",
                 "timestamp": "2025-02-22T10:15:56.786628"
             },
             {
                 "message_id": "msg_009",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "Tôi tên là Trung",
                 "timestamp": "2025-02-22T10:16:39.758294"
             },
             {
                 "message_id": "msg_010",
-                "selected": false,
+                "is_selected": false,
                 "sender": "AI",
                 "content": "Chào Trung! Rất vui được gặp bạn.\n\nBạn khỏe không?  Bạn cần gì ở đây?\n\n**In English:**\n\nHello Trung! Nice to meet you.\n\nHow are you? What do you need here?\n\n**Explanation of the Vietnamese:**\n\n* **Chào Trung:** Hello Trung (Chào is a common and friendly greeting)\n* **Rất vui được gặp bạn:** Very nice to meet you (Rất vui = very happy/nice, được gặp bạn = to meet you)\n* **Bạn khỏe không?:** How are you? (Bạn = you, khỏe = healthy/well, không = question marker)\n* **Bạn cần gì ở đây?:** What do you need here? (Bạn = you, cần = need, gì = what, ở đây = here)\n\n**Depending on the context, you might also want to say something like:**\n\n* **Chào Trung, rất vui được làm quen với bạn:** Hello Trung, nice to get acquainted with you (slightly more formal version of \"nice to meet you\")\n* **Chào Trung, bạn đến từ đâu?:** Hello Trung, where are you from? (if you want to start a conversation)\n\n**Please tell me more about what you'd like to do or talk about, and I can give you a more specific and helpful response!** For example, are you introducing yourself, asking for help, or just saying hello?",
                 "timestamp": "2025-02-22T10:16:39.758328"
             },
             {
                 "message_id": "msg_011",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "Tôi tên là gì ?",
                 "timestamp": "2025-02-22T10:16:57.750874"
             },
             {
                 "message_id": "msg_012",
-                "selected": false,
+                "is_selected": false,
                 "sender": "AI",
                 "content": "Bạn vừa nói \"Tôi tên là Trung\".  Vậy **tên của bạn là Trung**.\n\nCòn **tôi là một mô hình ngôn ngữ lớn**, được đào tạo bởi Google. Tôi không có tên riêng như con người. Bạn có thể gọi tôi là \"trợ lý AI\" hoặc đơn giản là \"tôi\".\n\nTôi có thể giúp gì cho bạn nữa không Trung?",
                 "timestamp": "2025-02-22T10:16:57.750887"
-            },
-            {
-                "message_id": "msg_68cf53",
-                "sender": "user",
-                "content": "Test",
-                "timestamp": "2025-02-23T14:01:45.822732"
-            },
-            {
-                "message_id": "msg_68cf53",
-                "sender": "AI",
-                "content": "Xin chào! Tôi là OpenAI ChatGPT.",
-                "timestamp": "2025-02-23T14:01:45.822740"
-            },
-            {
-                "message_id": "msg_a9af6c",
-                "sender": "user",
-                "content": "test 1",
-                "timestamp": "2025-02-23T17:43:12.882233"
-            },
-            {
-                "message_id": "msg_a9af6c",
-                "sender": "AI",
-                "content": "Xin chào! Tôi là OpenAI ChatGPT.",
-                "timestamp": "2025-02-23T17:43:12.882242"
             }
         ],
         "ai_config": {
@@ -125,73 +101,31 @@
         "messages": [
             {
                 "message_id": "msg_001",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "Tôi tên là gì",
                 "timestamp": "2025-02-21T17:03:52.108476"
             },
             {
                 "message_id": "msg_002",
-                "selected": false,
+                "is_selected": false,
                 "sender": "AI",
                 "content": "Bạn tên là Trung mà!  Tôi nhớ bạn đã nói \"Tôi là Trung\" ngay từ đầu cuộc trò chuyện của chúng ta.",
                 "timestamp": "2025-02-21T17:03:52.108502"
             },
             {
                 "message_id": "msg_003",
-                "selected": false,
+                "is_selected": false,
                 "sender": "user",
                 "content": "tôi tên là gì",
                 "timestamp": "2025-02-21T17:06:25.935756"
             },
             {
                 "message_id": "msg_004",
-                "selected": false,
+                "is_selected": false,
                 "sender": "AI",
                 "content": "Tôi là một mô hình ngôn ngữ lớn, tôi không có tên. Còn bạn, tôi không biết tên của bạn là gì vì tôi không có thông tin cá nhân về bạn.",
                 "timestamp": "2025-02-21T17:06:25.935772"
-            },
-            {
-                "message_id": "msg_005",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi là Trung",
-                "timestamp": "2025-02-21T17:07:20.560773"
-            },
-            {
-                "message_id": "msg_006",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào Trung! Rất vui được làm quen với bạn.",
-                "timestamp": "2025-02-21T17:07:20.560790"
-            },
-            {
-                "message_id": "msg_007",
-                "selected": false,
-                "sender": "user",
-                "content": "gọi tên tôi đi",
-                "timestamp": "2025-02-21T17:08:21.930917"
-            },
-            {
-                "message_id": "msg_008",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào Trung!",
-                "timestamp": "2025-02-21T17:08:21.930949"
-            },
-            {
-                "message_id": "msg_009",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi là ai",
-                "timestamp": "2025-02-21T17:13:13.030993"
-            },
-            {
-                "message_id": "msg_010",
-                "selected": false,
-                "sender": "AI",
-                "content": "Tôi là một mô hình ngôn ngữ lớn, được phát triển tại Google.\n\nTôi được đào tạo trên một lượng lớn dữ liệu văn bản và tôi có thể giao tiếp và tạo ra văn bản giống con người để đáp lại nhiều loại lời nhắc và câu hỏi. Ví dụ, tôi có thể cung cấp tóm tắt các chủ đề thực tế hoặc tạo ra những câu chuyện.",
-                "timestamp": "2025-02-21T17:13:13.031015"
             }
         ],
         "ai_config": {
@@ -200,465 +134,5 @@
             "response_time": "fast"
         },
         "created_at": "2025-02-21T17:03:43.709788"
-    },
-    {
-        "session_id": "7628bdbd-4cb2-46a3-adc7-dc3f1028e04f",
-        "session_name": "chat_20250221_1659",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi là Trung",
-                "timestamp": "2025-02-21T16:59:25.992555"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào Trung! Rất vui được gặp bạn. Bạn khỏe không? Hôm nay bạn thế nào?",
-                "timestamp": "2025-02-21T16:59:25.992586"
-            },
-            {
-                "message_id": "msg_003",
-                "selected": false,
-                "sender": "user",
-                "content": "Bạn nhắc lại tên tôi đi",
-                "timestamp": "2025-02-21T16:59:35.723884"
-            },
-            {
-                "message_id": "msg_004",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào bạn Trung.",
-                "timestamp": "2025-02-21T16:59:35.723915"
-            },
-            {
-                "message_id": "msg_005",
-                "selected": false,
-                "sender": "user",
-                "content": "Câu đầu tiên của tôi là gì",
-                "timestamp": "2025-02-21T17:00:35.168693"
-            },
-            {
-                "message_id": "msg_006",
-                "selected": false,
-                "sender": "AI",
-                "content": "Câu đầu tiên của bạn là \"Tôi là Trung\".",
-                "timestamp": "2025-02-21T17:00:35.168721"
-            },
-            {
-                "message_id": "msg_007",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi dùng model.start_chat(history=[]). Nếu cứ hỏi như này thì liệu lịch sử chat được bao lâu ?",
-                "timestamp": "2025-02-21T17:02:42.055599"
-            },
-            {
-                "message_id": "msg_008",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào bạn Trung,\n\nKhi bạn sử dụng `model.start_chat(history=[])`, bạn đang khởi tạo một phiên chat mới **với lịch sử trống**.  Điều này có nghĩa là:\n\n* **Mỗi lần bạn gọi `model.start_chat(history=[])`, bạn bắt đầu một cuộc trò chuyện hoàn toàn mới.**  Lịch sử từ các cuộc trò chuyện trước đó (nếu có) sẽ không được giữ lại.\n* **Trong một phiên chat cụ thể (tức là sau khi bạn đã gọi `model.start_chat(history=[])` một lần), lịch sử chat sẽ được duy trì trong suốt phiên đó.** Mô hình sẽ nhớ những gì bạn đã nói trong *phiên chat hiện tại* để đưa ra phản hồi phù hợp.\n\n**Vậy lịch sử chat được bao lâu?**\n\n* **Giữa các lần gọi `model.start_chat(history=[])`:**  Lịch sử **không được giữ lại**.  Mỗi lần bạn gọi hàm này, bạn tạo ra một phiên chat mới, độc lập.\n* **Trong một phiên chat:** Lịch sử chat được duy trì **cho đến khi phiên chat đó kết thúc** hoặc bạn khởi tạo một phiên chat mới bằng `model.start_chat(history=[])` lần nữa.  \"Bao lâu\" ở đây phụ thuộc vào cách thư viện hoặc mô hình bạn đang dùng quản lý phiên chat. Thông thường, nó sẽ kéo dài cho đến khi bạn chủ động kết thúc phiên (nếu có API cho việc này) hoặc đơn giản là ngừng tương tác trong một thời gian dài và phiên chat có thể tự động hết hạn (timeout).\n\n**Ví dụ:**\n\nGiả sử bạn thực hiện các bước sau:\n\n1. **`model.start_chat(history=[])` (Phiên chat 1)**\n2. **Bạn hỏi:** \"Tôi là Trung\"\n3. **Bạn hỏi:** \"Bạn nhắc lại tên tôi đi\" - Mô hình sẽ nhớ bạn là Trung vì nó có lịch sử trong phiên chat 1.\n4. **`model.start_chat(history=[])` (Phiên chat 2)** - Bạn khởi tạo phiên chat mới, lịch sử của phiên 1 bị bỏ qua.\n5. **Bạn hỏi:** \"Bạn nhắc lại tên tôi đi\" - Mô hình **không còn nhớ** bạn là Trung vì phiên chat 2 có lịch sử trống. Nó sẽ không biết bạn tên gì trừ khi bạn nói lại.\n\n**Tóm lại:**\n\n`model.start_chat(history=[])` tạo ra các phiên chat **ngắn hạn** và **độc lập**. Lịch sử chat chỉ tồn tại trong phạm vi một phiên chat duy nhất. Nếu bạn muốn có lịch sử chat kéo dài qua nhiều lần tương tác, bạn cần phải **quản lý lịch sử chat một cách thủ công** và truyền nó vào tham số `history` khi gọi `model.start_chat()` hoặc các hàm tương tự cho các lượt chat tiếp theo.\n\nNếu bạn muốn biết cách quản lý lịch sử chat thủ công để có cuộc trò chuyện dài hơi hơn, bạn có thể hỏi tiếp nhé!",
-                "timestamp": "2025-02-21T17:02:42.055626"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T16:59:14.662310"
-    },
-    {
-        "session_id": "3139ce82-d58b-4427-a345-f767cae72547",
-        "session_name": "chat_20250221_1654",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "tôi là Trung. chào bạn",
-                "timestamp": "2025-02-21T16:54:57.420079"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào bạn Trung! Rất vui được gặp bạn.",
-                "timestamp": "2025-02-21T16:54:57.420096"
-            },
-            {
-                "message_id": "msg_003",
-                "selected": false,
-                "sender": "user",
-                "content": "bạn nói lại tên tôi được ko",
-                "timestamp": "2025-02-21T16:55:10.494629"
-            },
-            {
-                "message_id": "msg_004",
-                "selected": false,
-                "sender": "AI",
-                "content": "Xin lỗi, hình như tôi chưa được biết tên của bạn thì phải. Bạn có thể cho tôi biết tên của bạn được không ạ?",
-                "timestamp": "2025-02-21T16:55:10.494656"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T16:54:37.134159"
-    },
-    {
-        "session_id": "aa75b99f-b525-46a8-a583-a2e7298ef09e",
-        "session_name": "chat_20250221_1651",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi là Trung",
-                "timestamp": "2025-02-21T16:52:04.784547"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Xin chào Trung! Rất vui được gặp bạn.",
-                "timestamp": "2025-02-21T16:52:04.784578"
-            },
-            {
-                "message_id": "msg_003",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi là ai ?",
-                "timestamp": "2025-02-21T16:52:14.260715"
-            },
-            {
-                "message_id": "msg_004",
-                "selected": false,
-                "sender": "AI",
-                "content": "Tôi là một mô hình ngôn ngữ lớn, được đào tạo bởi Google.",
-                "timestamp": "2025-02-21T16:52:14.260745"
-            },
-            {
-                "message_id": "msg_005",
-                "selected": false,
-                "sender": "user",
-                "content": "tôi tên là gì",
-                "timestamp": "2025-02-21T16:52:34.313485"
-            },
-            {
-                "message_id": "msg_006",
-                "selected": false,
-                "sender": "AI",
-                "content": "Tôi là Gemini, một mô hình ngôn ngữ lớn, được đào tạo bởi Google. Tôi không có tên, vì tôi không phải là một người.",
-                "timestamp": "2025-02-21T16:52:34.313513"
-            },
-            {
-                "message_id": "msg_007",
-                "selected": false,
-                "sender": "user",
-                "content": "chào bạn. tôi là Trung",
-                "timestamp": "2025-02-21T16:52:49.005093"
-            },
-            {
-                "message_id": "msg_008",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào Trung, có chuyện gì tôi giúp được bạn không?",
-                "timestamp": "2025-02-21T16:52:49.005121"
-            },
-            {
-                "message_id": "msg_009",
-                "selected": false,
-                "sender": "user",
-                "content": "Bạn nói lại tên tôi được ko?",
-                "timestamp": "2025-02-21T16:53:03.346139"
-            },
-            {
-                "message_id": "msg_010",
-                "selected": false,
-                "sender": "AI",
-                "content": "Tôi không có tên, tôi là một trợ lý AI.",
-                "timestamp": "2025-02-21T16:53:03.346180"
-            },
-            {
-                "message_id": "msg_011",
-                "selected": false,
-                "sender": "user",
-                "content": "Bạn nói lại tên tôi được ko",
-                "timestamp": "2025-02-21T16:54:26.910931"
-            },
-            {
-                "message_id": "msg_012",
-                "selected": false,
-                "sender": "AI",
-                "content": "Bạn muốn tôi nhắc lại tên của bạn phải không? Nhưng tiếc là tôi **không biết** tên của bạn.  Tôi là một mô hình ngôn ngữ AI và tôi không có thông tin cá nhân về người dùng, bao gồm cả tên của bạn, trừ khi bạn đã trực tiếp nói cho tôi biết trong cuộc trò chuyện này.\n\n**Bạn có thể cho tôi biết tên của bạn là gì được không?**  Tôi sẽ cố gắng nhớ nó trong cuộc trò chuyện này. 😊",
-                "timestamp": "2025-02-21T16:54:26.910953"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T16:51:24.582006"
-    },
-    {
-        "session_id": "c095929e-70fd-49b7-b81a-356a1035548a",
-        "session_name": "chat_20250221_1546c095929e-70fd-49b7-b81a-356a1035548a",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "test giao diện",
-                "timestamp": "2025-02-21T15:46:35.981979"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Xin chào! Bạn đang cần chỉnh sửa giao diện của thiết bị hoặc ứng dụng nào? Tôi sẽ hỗ trợ bạn.",
-                "timestamp": "2025-02-21T15:46:35.982010"
-            },
-            {
-                "message_id": "msg_003",
-                "selected": false,
-                "sender": "user",
-                "content": "không, tôi chỉ đang test thôi",
-                "timestamp": "2025-02-21T15:46:56.023612"
-            },
-            {
-                "message_id": "msg_004",
-                "selected": false,
-                "sender": "AI",
-                "content": "Tôi hiểu, nếu bạn cần thêm sự giúp đỡ, đừng ngần ngại thông báo cho tôi!",
-                "timestamp": "2025-02-21T15:46:56.023644"
-            },
-            {
-                "message_id": "msg_005",
-                "selected": false,
-                "sender": "user",
-                "content": "a iu ok ?",
-                "timestamp": "2025-02-21T15:58:33.437662"
-            },
-            {
-                "message_id": "msg_006",
-                "selected": false,
-                "sender": "AI",
-                "content": "As an AI, I'm always \"ok\". I don't have emotions or physical conditions, so I never experience feelings or sickness. Thanks for asking! How can I help you today?",
-                "timestamp": "2025-02-21T15:58:33.437692"
-            },
-            {
-                "message_id": "msg_007",
-                "selected": false,
-                "sender": "user",
-                "content": "Hi",
-                "timestamp": "2025-02-21T16:18:07.378726"
-            },
-            {
-                "message_id": "msg_008",
-                "selected": false,
-                "sender": "AI",
-                "content": "Hello! How can I assist you today?",
-                "timestamp": "2025-02-21T16:18:07.378756"
-            },
-            {
-                "message_id": "msg_009",
-                "selected": false,
-                "sender": "user",
-                "content": "viết đoạn văn khoảng 6 câu mô tả 1 thành phố",
-                "timestamp": "2025-02-21T16:21:09.962526"
-            },
-            {
-                "message_id": "msg_010",
-                "selected": false,
-                "sender": "AI",
-                "content": "Thành phố Hồ Chí Minh, còn được biết đến với tên gọi Sài Gòn, là một biểu tượng mạnh mẽ của sự sôi động và năng động của Việt Nam. Những tòa nhà chọc trời cao vút, hiện đại như Bitexco hay Landmark 81 luôn chiếu sáng dưới ánh đèn màu sắc đầy kiêu hãnh. Nhưng đô thị hóa hiện đại này không thể che lấp đi những quán cà phê, những khu chợ, những dãy phố cổ kính đầy nét đặc trưng của văn hóa phương Đông. Âm thanh của thành phố bao gồm tiếng còi xe tấp nập, tiếng người mua bán vang lên từ những gian hàng nhỏ trên vỉa hè. Bất kể thời điểm nào trong ngày, cuộc sống nơi đây đều không bao giờ dừng lại.",
-                "timestamp": "2025-02-21T16:21:09.962577"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T15:46:21.502925"
-    },
-    {
-        "session_id": "b70c6715-efcd-4799-9684-00c32bb5e56d",
-        "session_name": "chat_20250221_1530",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "xin chào GPT",
-                "timestamp": "2025-02-21T15:30:51.926415"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Xin chào! Tôi có thể giúp gì cho bạn hôm nay?",
-                "timestamp": "2025-02-21T15:30:51.926445"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T15:30:34.630520"
-    },
-    {
-        "session_id": "1230",
-        "session_name": "chat_20250221_1500",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "Chào bạn AI",
-                "timestamp": "2025-02-21T15:00:24.923736"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào bạn! Tôi có thể giúp gì cho bạn hôm nay?",
-                "timestamp": "2025-02-21T15:00:24.923766"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T15:00:09.438939"
-    },
-    {
-        "session_id": "123456",
-        "session_name": "chat_20250221_0830",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "Xin chào, hôm nay thế nào?",
-                "timestamp": "2025-02-21T08:30:00Z"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào Trung! Hôm nay tôi cảm thấy rất tuyệt. Bạn thì sao?",
-                "timestamp": "2025-02-21T08:30:05Z"
-            },
-            {
-                "message_id": "msg_003",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi khỏe",
-                "timestamp": "2025-02-21T10:19:08.732338"
-            },
-            {
-                "message_id": "msg_004",
-                "selected": false,
-                "sender": "AI",
-                "content": "Rất tốt, rất vui khi nghe điều đó. Bạn muốn trò chuyện về điều gì hôm nay?",
-                "timestamp": "2025-02-21T10:19:08.732346"
-            },
-            {
-                "message_id": "msg_005",
-                "selected": false,
-                "sender": "user",
-                "content": "Tôi muốn bạn thêm cho tôi 1 câu hỏi môn toán lớp 10 về xác suất thống kê",
-                "timestamp": "2025-02-21T10:19:49.005748"
-            },
-            {
-                "message_id": "msg_006",
-                "selected": false,
-                "sender": "AI",
-                "content": "Câu hỏi: Một túi chứa 3 quả bóng đỏ, 4 quả bóng xanh và 2 quả bóng vàng. Chọn ngẫu nhiên một quả bóng từ túi. Tính xác suất:\na) Quả bóng chọn được là quả bóng đỏ.\nb) Quả bóng chọn được không phải là quả bóng xanh.",
-                "timestamp": "2025-02-21T10:19:49.005778"
-            },
-            {
-                "message_id": "msg_007",
-                "selected": false,
-                "sender": "user",
-                "content": "biểu thị cho tôi một công thức toán có căn bậc 2",
-                "timestamp": "2025-02-21T10:39:29.247455"
-            },
-            {
-                "message_id": "msg_008",
-                "selected": false,
-                "sender": "AI",
-                "content": "Sure, here you go:\n\n√(a² + b²)",
-                "timestamp": "2025-02-21T10:39:29.247485"
-            },
-            {
-                "message_id": "msg_009",
-                "selected": false,
-                "sender": "user",
-                "content": "biểu thị một danh sách số thập phân trong công thức toán",
-                "timestamp": "2025-02-21T10:40:34.336167"
-            },
-            {
-                "message_id": "msg_010",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chúng ta thường biểu thị một danh sách số thập phân trong công thức toán với dấu phẩy (/) giữa các số. \n\nVí dụ: \n\n- Tính tổng của: 1.2, 3.4, 5.6, 7.8 - Trong công thức toán, nó sẽ được biểu diễn là 1.2 + 3.4 + 5.6 + 7.8\n\n- Tính hiệu của: 9.5 và 6.3 - Trong công thức toán, nó sẽ được biểu diễn là 9.5 - 6.3\n\nTuy nhiên, cần chú ý đến việc giữa dấu chấm động (.) và số liệu không được để dấu cách nếu không sẽ bị hiểu nhầm là dấu tách phần nghìn trong một số hệ thống số học.",
-                "timestamp": "2025-02-21T10:40:34.336198"
-            },
-            {
-                "message_id": "msg_011",
-                "selected": false,
-                "sender": "user",
-                "content": "Hello",
-                "timestamp": "2025-02-21T14:25:47.873577"
-            },
-            {
-                "message_id": "msg_012",
-                "selected": false,
-                "sender": "AI",
-                "content": "Hello! How can I assist you today?",
-                "timestamp": "2025-02-21T14:25:47.873607"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T08:30:00Z"
-    },
-    {
-        "session_id": "1233",
-        "session_name": "chat_20250221_1330",
-        "messages": [
-            {
-                "message_id": "msg_001",
-                "selected": false,
-                "sender": "user",
-                "content": "Xin chào !",
-                "timestamp": "2025-02-21T08:30:00Z"
-            },
-            {
-                "message_id": "msg_002",
-                "selected": false,
-                "sender": "AI",
-                "content": "Chào Trung!",
-                "timestamp": "2025-02-21T08:30:05Z"
-            }
-        ],
-        "ai_config": {
-            "model": "gpt-4",
-            "max_tokens": 1024,
-            "response_time": "fast"
-        },
-        "created_at": "2025-02-21T08:30:00Z"
     }
 ]

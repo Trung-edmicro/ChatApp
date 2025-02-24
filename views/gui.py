@@ -8,17 +8,9 @@ from datetime import datetime
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
+from internal.db.connection import get_db
+from controllers.controllers import *
 CHAT_HISTORY_FILE = "data.json"
-
-# # Cấu hình AI API
-#     # OpenAI
-# client = openai.OpenAI(api_key="")
-
-#     # Gemini
-# api_key = ""
-# genai.configure(api_key=api_key)
-# model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
-# chat = model.start_chat(history=[])
 
 class ToggleSwitch(QWidget):
     toggled_signal = pyqtSignal(bool)
@@ -204,12 +196,11 @@ class ChatItem(QWidget):
         clipboard.setText(markdown_text)
 
 class ChatApp(QWidget):
-    def __init__(self, app, openai_api_key, gemini_api_key, postgres_driver):
+    def __init__(self, app, openai_api_key, gemini_api_key):
         super().__init__()
         self.app = app
         self.openai_api_key = openai_api_key # Lưu API keys
         self.gemini_api_key = gemini_api_key # Lưu API keys
-        self.postgres_driver = postgres_driver # Lưu driver postgres
         
         # Cấu hình AI API
         # OpenAI
@@ -221,7 +212,8 @@ class ChatApp(QWidget):
         self.gemini_chat = self.gemini_model.start_chat(history=[])
         
         self.initUI()
-        self.load_chat_history()
+        self.load_sessions_from_db() # Gọi hàm load sessions từ DB
+        # self.load_chat_history()
         self.selected_messages_data = []
 
     def initUI(self):
@@ -428,6 +420,27 @@ class ChatApp(QWidget):
         self.setLayout(main_layout)
         
 # === Function ===
+    def load_sessions_from_db(self): # Đổi tên hàm thành load_sessions_from_db
+        db = next(get_db())
+        sessions = get_all_sessions(db)
+        db.close()
+
+        if sessions:
+            self.history_list.clear() # Clear list trước khi load dữ liệu mới
+            max_width = self.history_list.width() - 20
+            for session_data in sessions:
+                full_text = session_data['session_name']
+
+                metrics = QFontMetrics(self.history_list.font())
+                elided_text = metrics.elidedText(full_text, Qt.ElideRight, max_width)
+
+                item = QListWidgetItem(elided_text)
+                item.setData(Qt.UserRole, session_data['session_id']) # Store session_id
+                item.setSizeHint(QSize(self.history_list.width(), 40))
+                self.history_list.addItem(item)
+        else:
+            print("Không có session nào trong Database.") # Vẫn in log nếu không có session
+
     def load_chat_history(self):
         try:
             with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as file:

@@ -8,10 +8,9 @@ load_dotenv()  # Load biến môi trường từ .env
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
-postgres_driver = os.getenv("POSTGRES_DRIVER") # Lấy driver postgres
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = ChatApp(app, openai_api_key, gemini_api_key, postgres_driver) # Truyền API keys và driver
+    window = ChatApp(app, openai_api_key, gemini_api_key) # Truyền API keys và driver
     window.show()
     sys.exit(app.exec_())
