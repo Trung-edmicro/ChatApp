@@ -11,7 +11,7 @@ from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontM
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
 from internal.db.connection import get_db
 from controllers.controllers import *
-import json
+from views.export_docx import export_to_docx
 
 class ToggleSwitch(QWidget):
     toggled_signal = pyqtSignal(bool)
@@ -218,8 +218,8 @@ class ChatApp(QWidget):
         
         self.initUI()
         self.load_sessions_from_db() # Gọi hàm load sessions từ DB
-        self.load_selected_messages_list()
         self.selected_messages_data = []
+        self.load_selected_messages_list()
         self.current_session_id = None  # Thêm biến self.current_session_id, khởi tạo là None
 
     def initUI(self):
@@ -713,6 +713,15 @@ class ChatApp(QWidget):
 
         if selected_message:
             print(f"Message ID {message_id} đã được chọn.") # Log
+
+            # === Thêm dữ liệu tin nhắn đã chọn vào self.selected_messages_data ===
+            self.selected_messages_data.append({ # Thêm dictionary vào list
+                "message_id": selected_message.message_id,
+                "sender": selected_message.sender,
+                "content": selected_message.content,
+                "timestamp": selected_message.timestamp.isoformat() if selected_message.timestamp else None,
+                "selected_at": selected_message.selected_at.isoformat() if selected_message.selected_at else None
+            })
             self.load_selected_messages_list() # Gọi hàm load lại danh sách selected messages
         else:
             print(f"Không thể chọn Message ID {message_id}.") # Log lỗi
@@ -766,6 +775,8 @@ class ChatApp(QWidget):
                 item.setData(Qt.UserRole, message_data['message_id']) # Lưu message_id (nếu cần)
                 self.selected_messages.addItem(item)
                 self.selected_messages.setItemWidget(item, widget)
+                # === Đồng bộ hóa dữ liệu vào self.selected_messages_data ===
+                self.selected_messages_data.append(message_data) # **Thêm message_data (dictionary) vào self.selected_messages_data**
         else:
             print("Không có tin nhắn nào được chọn.") # Log nếu không có selected messages
 
@@ -796,7 +807,11 @@ class ChatApp(QWidget):
         self.load_selected_messages_list() # Gọi hàm load lại danh sách selected messages (sẽ hiển thị danh sách trống)
 
     def export_list_messages(self):
-        print("Export")
+        print(self.selected_messages_data)
+        if export_to_docx(self.selected_messages_data):
+            print("Xuất file thành công!")
+        else:
+            print("Xuất file thất bại!")
 
     def closeEvent(self, event):
         """Xử lý sự kiện đóng cửa sổ ứng dụng."""

@@ -6,7 +6,7 @@ def export_to_docx(selected_messages_data, output_filename="selected_messages.do
         return False
 
     # Định dạng nội dung theo thứ tự index
-    md_content = "\n\n".join([f"**Câu {i+1}.** {msg}" for i, msg in enumerate(selected_messages_data)])
+    md_content = "\n\n".join([f"**Câu {i+1}.** {msg["content"]}" for i, msg in enumerate(selected_messages_data)])
 
     # Tạo file Markdown tạm thời
     md_filename = "selected_messages.md"
