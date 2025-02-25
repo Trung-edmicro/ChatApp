@@ -1,17 +1,19 @@
 import sys
 import json
-import re
-from views import styles
 import uuid
+import markdown2
 import openai
 import google.generativeai as genai
+
+from views import styles
 from datetime import datetime
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QTextBrowser
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-import markdown2
+
 from views.export_docx import export_to_docx
+from views.utils.contains import contains_latex
 
 CHAT_HISTORY_FILE = "data.json"
 
@@ -696,6 +698,7 @@ class ChatApp(QWidget):
         prompt_template = f"""Bạn là một Giáo viên thông minh. Hãy trả lời nội dung dưới đây một cách chi tiết và rõ ràng:
         {user_message}
         Kết quả trả về phải bao gồm quy chuẩn bắt buộc sau (đừng trả về các yêu cầu này trong phần trả về):
+        - Luôn tách biệt nội dung và công thức toán cách nhau 1 dòng.
         - Các công thức phải trả về mã Latex với điều kiện:
             + Sử dụng $...$ để bọc các công thức thay vì sử dụng \[...\] hay \(...\), không sử dụng \boxed trong công thức.
             + Không được sử dụng \frac, thay vào đó sử dụng \dfrac
@@ -823,22 +826,3 @@ class ChatApp(QWidget):
         else:
             print("Xuất file thất bại!")
 
-def contains_latex(text):
-    # Regex tìm các ký hiệu LaTeX phổ biến
-    latex_patterns = [
-        r"\$\$(.*?)\$\$",         # Công thức block $$ ... $$
-        r"\$(.*?)\$",             # Công thức inline $ ... $
-        r"\\\((.*?)\\\)",         # Công thức inline \( ... \)
-        r"\\\[(.*?)\\\]",         # Công thức block \[ ... \]
-        r"\\frac\{.*?\}\{.*?\}",  # Phân số
-        r"\\sqrt\{.*?\}",         # Căn bậc hai
-        r"\\sum",                 # Tổng sigma
-        r"\\int",                 # Tích phân
-        r"\\begin\{align\}"       # Hệ phương trình
-    ]
-    
-    # Kiểm tra nếu có bất kỳ mẫu nào khớp
-    for pattern in latex_patterns:
-        if re.search(pattern, text, re.DOTALL):
-            return True
-    return False
