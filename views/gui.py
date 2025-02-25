@@ -728,11 +728,58 @@ class ChatApp(QWidget):
             for index, message_data in enumerate(selected_messages_data): # Sử dụng enumerate để lấy index
                 display_text = f"{index + 1}. {message_data['content'][:50]}..." # Thêm số thứ tự vào display_text (index + 1)
                 item = QListWidgetItem(display_text)
-                item.setToolTip(message_data['content']) # Tooltip hiển thị đầy đủ nội dung
+                item.setSizeHint(QSize(self.selected_messages.width(), 40)) # Set Size Hint cho item
+                # === Tạo WIDGET TÙY CHỈNH cho item ===
+                widget = QWidget()
+                widget.setStyleSheet("""
+                    background-color: transparent;
+                """)
+                layout = QHBoxLayout()
+                layout.setContentsMargins(5, 2, 5, 2)
+                layout.setSpacing(5)
+
+                # Tạo label hiển thị nội dung
+                metrics = QFontMetrics(self.selected_messages.font())
+                elided_text = metrics.elidedText(display_text, Qt.ElideRight, self.selected_messages.width() - 40) # Tạo elided_text
+                label = QLabel(elided_text) # **LỖI CŨ: elided_text chưa được định nghĩa ở đây! CẦN SỬA**
+                label = QLabel(elided_text) # Tạo label SAU khi có elided_text
+                label.setToolTip(message_data['content'])
+                label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                label.setStyleSheet("""color: white;""")
+                label.setAlignment(Qt.AlignVCenter)
+
+                # Nút xóa (icon)
+                delete_item_button = QPushButton()
+                delete_item_button.setIcon(QIcon("views/images/trash_icon.png")) # Đảm bảo đường dẫn icon đúng
+                delete_item_button.setCursor(QCursor(Qt.PointingHandCursor))
+                delete_item_button.setFixedSize(18, 18)
+                delete_item_button.setStyleSheet("border: none; background: transparent;")
+                delete_item_button.clicked.connect(lambda _, item=item: self.remove_selected_message(item)) # Cần implement self.remove_selected_message
+
+                # Thêm label và nút vào layout
+                layout.addWidget(label)
+                layout.addStretch()
+                layout.addWidget(delete_item_button)
+
+                widget.setLayout(layout)
+                # === END WIDGET TÙY CHỈNH ===
                 item.setData(Qt.UserRole, message_data['message_id']) # Lưu message_id (nếu cần)
                 self.selected_messages.addItem(item)
+                self.selected_messages.setItemWidget(item, widget)
         else:
             print("Không có tin nhắn nào được chọn.") # Log nếu không có selected messages
+
+    def remove_selected_message(self, item):
+        """Bỏ chọn một tin nhắn khỏi danh sách tin nhắn đã chọn (khung bên phải)."""
+        message_id = item.data(Qt.UserRole) # Lấy message_id từ item data
+        db = next(get_db())
+        unselected_message = unselect_ai_response(db, message_id) # Gọi controller unselect message trong DB
+        db.close()
+        if unselected_message:
+            print(f"Message ID {message_id} đã được bỏ chọn.") # Log bỏ chọn thành công
+            self.load_selected_messages_list() # Load lại danh sách selected messages để cập nhật GUI
+        else:
+            print(f"Lỗi khi bỏ chọn Message ID {message_id}.") # Log lỗi bỏ chọn
 
     def clear_list_messages(self):
         """Xóa tất cả các tin nhắn đã chọn khỏi danh sách."""
@@ -757,3 +804,22 @@ class ChatApp(QWidget):
         self.save_current_session_summary() # Lưu summary của session hiện tại trước khi đóng
         event.accept() # Chấp nhận sự kiện đóng cửa sổ, ứng dụng sẽ đóng
 
+def contains_latex(text):
+    # Regex tìm các ký hiệu LaTeX phổ biến
+    latex_patterns = [
+        r"\$\$(.*?)\$\$",         # Công thức block $$ ... $$
+        r"\$(.*?)\$",             # Công thức inline $ ... $
+        r"\\\((.*?)\\\)",         # Công thức inline \( ... \)
+        r"\\\[(.*?)\\\]",         # Công thức block \[ ... \]
+        r"\\frac\{.*?\}\{.*?\}",  # Phân số
+        r"\\sqrt\{.*?\}",         # Căn bậc hai
+        r"\\sum",                 # Tổng sigma
+        r"\\int",                 # Tích phân
+        r"\\begin\{align\}"       # Hệ phương trình
+    ]
+    
+    # Kiểm tra nếu có bất kỳ mẫu nào khớp
+    for pattern in latex_patterns:
+        if re.search(pattern, text, re.DOTALL):
+            return True
+    return False
