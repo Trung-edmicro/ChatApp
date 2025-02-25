@@ -667,10 +667,21 @@ class ChatApp(QWidget):
 
             if deleted:
                 print(f"Session '{session_name}' (ID: {session_id}) đã được xóa.") # Log xóa thành công
-                self.load_sessions_from_db() # Load lại danh sách session để cập nhật GUI
+
+                row = self.history_list.row(item) # Get row index
+                self.history_list.takeItem(row) # Remove item from QListWidget
+
                 self.chat_display.clear() # Xóa chat display khi session bị xóa
                 self.current_session_id = None # Reset current_session_id
-                self.load_selected_messages_list()
+                # self.load_selected_messages_list() # KHÔNG gọi load_selected_messages_list() ở đây nữa
+
+                # === Kiểm tra nếu danh sách session trở nên rỗng sau khi xóa ===
+                if self.history_list.count() == 0: # Nếu history_list rỗng sau khi xóa
+                    print("Danh sách session đã rỗng sau khi xóa.") # Log
+                    self.chat_display.clear() # Đảm bảo chat_display cũng trống
+                    self.current_session_id = None # Đảm bảo current_session_id là None
+                    self.selected_messages.clear() # Clear selected messages list luôn cho chắc
+                    self.selected_messages_data = [] # Clear selected messages data luôn cho chắc
             else:
                 print(f"Lỗi khi xóa session '{session_name}' (ID: {session_id}).") # Log lỗi xóa
                 
@@ -738,9 +749,18 @@ class ChatApp(QWidget):
             return
         session_id = current_session_item.data(Qt.UserRole)
 
+        prompt_template = f"""Bạn là một Giáo viên thông minh. Hãy trả lời nội dung dưới đây một cách chi tiết và rõ ràng:
+        {user_message_text}
+        Kết quả trả về phải bao gồm quy chuẩn bắt buộc sau (đừng trả về các yêu cầu này trong phần trả về):
+        - Luôn tách biệt nội dung và công thức toán cách nhau 1 dòng.
+        - Các công thức phải trả về mã Latex với điều kiện:
+            + Sử dụng $...$ để bọc các công thức thay vì sử dụng \[...\] hay \(...\), không sử dụng \boxed trong công thức.
+            + Không được sử dụng \frac, thay vào đó sử dụng \dfrac
+        """
+
         # === Lưu tin nhắn người dùng vào database ===
         db = next(get_db())
-        db_user_message = create_message_controller(db, session_id, "user", user_message_text) # Use user_message_text
+        db_user_message = create_message_controller(db, session_id, "user", prompt_template) # Use user_message_text
         db.close()
 
         # === Hiển thị tin nhắn người dùng lên GUI ===
@@ -759,13 +779,13 @@ class ChatApp(QWidget):
                 print("Gọi OpenAI/ChatGPT API")
                 openai_response = self.openai_client.chat.completions.create(
                     model="gpt-4",
-                    messages=[{"role": "user", "content": user_message_text}] # **Corrected: user_message_text for OpenAI**
+                    messages=[{"role": "user", "content": prompt_template}] # **Corrected: user_message_text for OpenAI**
                 )
                 bot_reply_text = openai_response.choices[0].message.content.strip() # Correctly get text from OpenAI response
                 ai_sender = "system"
             else: # Toggle OFF: Gemini
                 print("Gọi Gemini API")
-                gemini_response = self.gemini_chat.send_message(user_message_text) # **Corrected: user_message_text for Gemini**
+                gemini_response = self.gemini_chat.send_message(prompt_template) # **Corrected: user_message_text for Gemini**
                 bot_reply_text = gemini_response.text # Correctly get text from Gemini response
                 ai_sender = "system"
                 print(f"Gemini history: {self.gemini_chat.history}") # Debugging Gemini history

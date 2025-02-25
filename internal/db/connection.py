@@ -13,9 +13,13 @@ DB_HOST = os.getenv("POSTGRES_HOST", "localhost") # Mặc định localhost nế
 DB_PORT = os.getenv("POSTGRES_PORT", "5432")     # Mặc định 5432 nếu không có
 DB_NAME = os.getenv("POSTGRES_DB")
 
-DATABASE_URL = f"{DB_DRIVER}://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# DATABASE_URL = f"{DB_DRIVER}://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# Database URL for SQLite (file-based database in the project directory)
 
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = f"sqlite:///./chat_history.db" # SQLite database for testing purposes (replace with your actual database URL)
+
+# engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}) # Add connect_args for PyQt5
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
