@@ -1,4 +1,5 @@
 import sys
+import re
 import json
 from views import styles
 import uuid
@@ -8,7 +9,9 @@ from google.generativeai.types import content_types
 from datetime import datetime
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
-from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
+from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+import markdown2
 from internal.db.connection import get_db
 from controllers.controllers import *
 from views.export_docx import export_to_docx
@@ -71,6 +74,7 @@ class ChatItem(QWidget):
     def __init__(self, message_id, message="", sender="user", parent=None, chat_app=None):
         super().__init__(parent)
 
+        latex_checked = contains_latex(message)
         self.message_id = message_id
         self.chat_app = chat_app 
 
@@ -105,7 +109,81 @@ class ChatItem(QWidget):
         text_width = font_metrics.width(message) + 16
         min_width = 60
         max_width = 500
+        # Web view
+        self.web_view = QWebEngineView()
+        self.web_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
+        # Chuyển Markdown thành HTML có hỗ trợ MathJax
+        def format_message(message):
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script>
+                    window.MathJax = {{
+                        tex: {{
+                            inlineMath: [['$', '$'], ['\\(', '\\)']]
+                        }},
+                        svg: {{
+                            fontCache: 'global'
+                        }}
+                    }};
+                </script>
+                <script type="text/javascript" async
+                    src="https://polyfill.io/v3/polyfill.min.js?features=es6">
+                </script>
+                <script type="text/javascript" async
+                    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+                </script>
+                <style>
+                    body {{
+                        font-size: 17px;
+                        color: white;
+                        background-color: #2E2E2E;
+                    }}
+                    ::-webkit-scrollbar {{
+                        width: 10px; /* Độ rộng thanh cuộn */
+                        height: 10px;
+                    }}
+                    ::-webkit-scrollbar-track {{
+                        background: #2E2E2E;
+                        border-radius: 10px;
+                    }}
+                    ::-webkit-scrollbar-thumb {{
+                        background: #555;
+                        border-radius: 10px;
+                        transition: background 0.3s;
+                    }}
+                    ::-webkit-scrollbar-thumb:hover {{
+                        background: #888;
+                    }}
+                    .chat-container {{
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-start;
+                        margin-bottom: 10px;
+                        max-width: 100%;
+                    }}
+                    .ai-message {{
+                        max-width: 100%;
+                        border-radius: 12px;
+                        text-align: left;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="chat-container">
+                    <div class="ai-message">
+                        {markdown2.markdown(message, extras=["fenced-code-blocks", "tables", "strike", "mathjax"])}
+                    </div>
+                </div>
+                <script>
+                    MathJax.typesetPromise();
+                </script>
+            </body>
+            </html>
+            """
+            return html_content
         if sender == "user":
             self.text_edit.setStyleSheet("""
                 QTextEdit {
@@ -121,23 +199,39 @@ class ChatItem(QWidget):
             main_layout.addWidget(self.text_edit, 0, Qt.AlignRight)
             self.text_edit.setFixedWidth(min(max_width, max(text_width, min_width)))
 
-        else:  # **AI Message**
-            self.text_edit.setStyleSheet("""
-                QTextEdit {
-                    border: 1px solid #545454;
-                    font-size: 14px;
-                    border-radius: 12px;
-                    padding: 8px;
-                    color: white;
-                }
-            """)
-
-            main_layout.addLayout(more_layout)
-            main_layout.addWidget(self.text_edit)
-
+        else:
+            main_layout.addLayout(more_layout) # Luôn thêm more_layout
+            if latex_checked:
+                # AI message CÓ LaTeX: chỉ hiển thị WebView, ẨN QTextEdit
+                self.web_view.setHtml(format_message(message)) # Set HTML vào WebView
+                self.text_edit.hide() # ẨN QTextEdit
+                main_layout.addWidget(self.web_view) # Thêm WebView vào layout
+                main_layout.setStretch(0, 1) # Stretch layout cho WebView
+                main_layout.setStretch(1, 3) # Stretch layout cho WebView
+            else:
+                self.text_edit.setStyleSheet("""
+                    QTextEdit {
+                        border: 1px solid #545454;
+                        font-size: 14px;
+                        border-radius: 12px;
+                        padding: 8px;
+                        color: white;
+                    }
+                """)
+                self.web_view.hide() # ẨN WebView
+                main_layout.addWidget(self.text_edit) # Thêm QTextEdit vào layout
+        #     main_layout.addLayout(more_layout)
+        #     main_layout.addWidget(self.text_edit)
+        # self.web_view.setHtml(format_message(message))
         doc = self.text_edit.document()
         doc.setTextWidth(self.text_edit.width())
         self.text_edit.setFixedHeight(int(doc.size().height()) + 15)
+        # Dùng QTimer để cập nhật MathJax sau khi WebEngine tải xong
+        QTimer.singleShot(100, self.update_mathjax)
+
+    def update_mathjax(self):
+        """Kích hoạt MathJax sau khi nội dung được load"""
+        self.web_view.page().runJavaScript("MathJax.typesetPromise();")
 
     def show_more_menu(self):
         menu = QMenu(self)
@@ -722,7 +816,9 @@ class ChatApp(QWidget):
                 "timestamp": selected_message.timestamp.isoformat() if selected_message.timestamp else None,
                 "selected_at": selected_message.selected_at.isoformat() if selected_message.selected_at else None
             })
+            print(f"Danh sách self.selected_messages_data trước khi load lại gui: {self.selected_messages_data}") # Log
             self.load_selected_messages_list() # Gọi hàm load lại danh sách selected messages
+            print(f"Danh sách self.selected_messages_data sau khi load lại gui: {self.selected_messages_data}") # Log
         else:
             print(f"Không thể chọn Message ID {message_id}.") # Log lỗi
 
@@ -775,8 +871,9 @@ class ChatApp(QWidget):
                 item.setData(Qt.UserRole, message_data['message_id']) # Lưu message_id (nếu cần)
                 self.selected_messages.addItem(item)
                 self.selected_messages.setItemWidget(item, widget)
-                # === Đồng bộ hóa dữ liệu vào self.selected_messages_data ===
-                self.selected_messages_data.append(message_data) # **Thêm message_data (dictionary) vào self.selected_messages_data**
+                if self.selected_messages_data == []:
+                    # === Đồng bộ hóa dữ liệu vào self.selected_messages_data ===
+                    self.selected_messages_data.append(message_data) # **Thêm message_data (dictionary) vào self.selected_messages_data**
         else:
             print("Không có tin nhắn nào được chọn.") # Log nếu không có selected messages
 

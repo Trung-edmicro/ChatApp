@@ -159,7 +159,8 @@ def get_ai_selected_question_detail(db: Session, message_id: str):
 
 def select_ai_response(db: Session, message_id: str):
     """Chọn một phản hồi AI vào danh sách câu hỏi lựa chọn."""
-    db_message = db.query(models.Message).filter(models.Message.message_id == message_id, models.Message.sender == 'system').first()
+    db_message = db.query(models.Message).filter(models.Message.message_id == message_id, models.Message.sender == 'system', 
+                                                 models.Message.is_selected == False).first()
     if db_message:
         db_message.is_selected = True # Đã đổi tên cột thành is_selected
         db_message.selected_at = datetime.now(tz=timezone.utc) # Set selected_at bằng thời điểm hiện tại (UTC)
