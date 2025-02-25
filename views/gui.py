@@ -359,9 +359,8 @@ class ChatApp(QWidget):
             QListWidget::item {{
                 color: {styles.HISTORY_TEXT_COLOR};
                 background-color: {styles.HISTORY_ITEM_BACKGROUND};
-                padding: {styles.HISTORY_ITEM_PADDING}; 
+                padding-right: 6px;
                 border: none; 
-                margin-bottom: 5px; 
                 border-radius: 10px; 
             }}
             QListWidget::item:hover {{
@@ -526,6 +525,7 @@ class ChatApp(QWidget):
 
         if sessions:
             self.history_list.clear() # Clear list trước khi load dữ liệu mới
+            self.history_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
             max_width = self.history_list.width() - 20
             for session_data in sessions:
                 full_text = session_data['session_name']
