@@ -81,6 +81,10 @@ def delete_session(db: Session, session_id: str):
         return True # Xóa thành công
     return False # Session không tồn tại hoặc lỗi
 
+def delete_session_controller(db: Session, session_id: str):
+    """Xóa một session mới thông qua controller."""
+    return delete_session(db, session_id) # Gọi hàm delete_session đã có
+
 def create_message_controller(db: Session, session_id: str, sender: str, content: str):
     """Tạo và lưu một message mới vào database."""
     # Lấy statement_index tiếp theo cho session

@@ -13,7 +13,7 @@ class Session(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan", order_by="Message.statement_index") # Quan hệ với bảng Message, thêm cascade
-    summaries = relationship("Summary", back_populates="session", order_by="Summary.to_statement_index") # Quan hệ với bảng Summary, thêm order_by
+    summaries = relationship("Summary", back_populates="session", cascade="all, delete-orphan", order_by="Summary.to_statement_index") # Quan hệ với bảng Summary, thêm order_by
 
     def __repr__(self):
         return f"<Session(session_id='{self.session_id}', session_name='{self.session_name}')>"

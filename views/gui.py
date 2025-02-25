@@ -6,7 +6,7 @@ import openai
 import google.generativeai as genai
 from google.generativeai.types import content_types
 from datetime import datetime
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize
 from internal.db.connection import get_db
@@ -182,9 +182,14 @@ class ChatItem(QWidget):
         menu.exec_(self.more_button.mapToGlobal(self.more_button.rect().bottomRight()))
 
     def add_text(self):
+        print("ChatItem.add_text được gọi") # Debug print
+        message_content = self.text_edit.toPlainText()
         if self.chat_app:
-            print(f"Thêm message vào danh sách chọn: Message ID = {self.message_id}") # Log
-            self.chat_app.add_to_selected_messages(self.message_id) # Gọi hàm của ChatApp và truyền message_id
+            print("ChatItem.add_text: self.chat_app is NOT None") # Debug print
+            print(f"ChatItem.add_text: Thêm message vào danh sách chọn: Message ID = {self.message_id}") # Log
+            self.chat_app.add_to_selected_messages(self.message_id)
+        else:
+            print("ChatItem.add_text: self.chat_app is None!") # Debug print - Kiểm tra xem self.chat_app có bị None không
 
     def copy_text(self):
         clipboard = QApplication.clipboard()
@@ -435,10 +440,43 @@ class ChatApp(QWidget):
                 metrics = QFontMetrics(self.history_list.font())
                 elided_text = metrics.elidedText(full_text, Qt.ElideRight, max_width)
 
-                item = QListWidgetItem(elided_text)
-                item.setData(Qt.UserRole, session_data['session_id']) # Store session_id
+                item = QListWidgetItem()
+                item.setData(Qt.UserRole, session_data['session_id'])
                 item.setSizeHint(QSize(self.history_list.width(), 40))
+                    
+                # Tạo widget chứa tên session và nút xóa
+                widget = QWidget()
+                widget.setStyleSheet("""
+                        background-color: transparent;
+                    """)
+                layout = QHBoxLayout()
+                layout.setContentsMargins(10, 0, 10, 0)
+                layout.setSpacing(5)
+
+                # Label hiển thị session name
+                label = QLabel(elided_text)
+                label.setToolTip(full_text)
+                label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                label.setStyleSheet("color: white;")
+
+                # Nút xóa (icon thùng rác)
+                delete_button = QPushButton()
+                delete_button.setIcon(QIcon("views/images/trash_icon.png"))
+                delete_button.setCursor(QCursor(Qt.PointingHandCursor))
+                delete_button.setFixedSize(18, 18)
+                delete_button.setStyleSheet("border: none; background: transparent;")
+                delete_button.clicked.connect(lambda _, item=item, session_id=session_data['session_id']: self.delete_selected_session(item, session_id))
+
+                # Thêm vào layout
+                layout.addWidget(label)
+                layout.addStretch()
+                layout.addWidget(delete_button)
+
+                widget.setLayout(layout)
+                widget.setMinimumHeight(40)
+
                 self.history_list.addItem(item)
+                self.history_list.setItemWidget(item, widget)
         else:
             print("Không có session nào trong Database.") # Vẫn in log nếu không có session
 
@@ -479,6 +517,7 @@ class ChatApp(QWidget):
                 msg_text = message_data['content']
 
                 # Tạo ChatItem mới
+                print(f"load_selected_chat: Creating ChatItem for message_id={msg_id}, chat_app={self}") # Debug print
                 msg_widget = ChatItem(msg_id, msg_text, sender=sender, chat_app=self)
                 msg_item = QListWidgetItem()
                 msg_item.setSizeHint(msg_widget.sizeHint())
@@ -519,6 +558,29 @@ class ChatApp(QWidget):
         else:
             print("Lỗi khi tạo session mới.") # Xử lý lỗi nếu không tạo được session
 
+    def delete_selected_session(self, item, session_id):
+        """Xóa session hiện tại được chọn."""
+        session_name = item.text() # Lấy session name để hiển thị thông báo
+
+        # Hiển thị hộp thoại xác nhận trước khi xóa (tùy chọn, nhưng nên có)
+        reply = QMessageBox.question(self, 'Xác nhận xóa Session',
+            f"Bạn có chắc chắn muốn xóa session '{session_name}' không?\nHành động này không thể hoàn tác!",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            db = next(get_db())
+            deleted = delete_session_controller(db, session_id) # Gọi controller xóa session
+            db.close()
+
+            if deleted:
+                print(f"Session '{session_name}' (ID: {session_id}) đã được xóa.") # Log xóa thành công
+                self.load_sessions_from_db() # Load lại danh sách session để cập nhật GUI
+                self.chat_display.clear() # Xóa chat display khi session bị xóa
+                self.current_session_id = None # Reset current_session_id
+                self.load_selected_messages_list()
+            else:
+                print(f"Lỗi khi xóa session '{session_name}' (ID: {session_id}).") # Log lỗi xóa
+                
     def save_current_session_summary(self, session_id_to_save=None):
         """Lưu hoặc cập nhật summary của session hiện tại (hoặc session_id được truyền vào)."""
         session_id = session_id_to_save # Sử dụng session_id truyền vào, hoặc session hiện tại nếu không có tham số
@@ -590,7 +652,7 @@ class ChatApp(QWidget):
 
         # === Hiển thị tin nhắn người dùng lên GUI ===
         user_item = QListWidgetItem()
-        user_widget = ChatItem(db_user_message.message_id, db_user_message.content, sender="user")
+        user_widget = ChatItem(db_user_message.message_id, db_user_message.content, sender="user", chat_app=self)
         user_item.setSizeHint(user_widget.sizeHint())
         self.chat_display.addItem(user_item)
         self.chat_display.setItemWidget(user_item, user_widget)
@@ -626,7 +688,7 @@ class ChatApp(QWidget):
 
         # === Hiển thị phản hồi AI lên GUI ===
         bot_item = QListWidgetItem()
-        bot_widget = ChatItem(db_bot_message.message_id, db_bot_message.content, sender="system")
+        bot_widget = ChatItem(db_bot_message.message_id, db_bot_message.content, sender="system", chat_app=self)
         bot_item.setSizeHint(bot_widget.sizeHint())
         self.chat_display.addItem(bot_item)
         self.chat_display.setItemWidget(bot_item, bot_widget)
@@ -643,8 +705,10 @@ class ChatApp(QWidget):
 
     def add_to_selected_messages(self, message_id):
         """Xử lý việc thêm message vào danh sách tin nhắn đã chọn."""
+        print("ChatApp.add_to_selected_messages được gọi, message_id =", message_id) # Debug print
         db = next(get_db())
         selected_message = select_ai_response(db, message_id) # Gọi controller để select message trong DB
+        print("ChatApp.add_to_selected_messages: Sau khi gọi select_ai_response, selected_message =", selected_message) # Debug print - Kiểm tra selected_message
         db.close()
 
         if selected_message:
