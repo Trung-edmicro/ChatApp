@@ -1,2 +1,5 @@
 __pycache__/ # Thêm cả thư mục __pycache__ gốc nếu cần
 .env
+dist/ # Thêm thư mục dist gốc nếu cần
+Output/ # Thêm thư mục output gốc nếu cần
+build/ # Thêm thư mục build gốc nếu cần

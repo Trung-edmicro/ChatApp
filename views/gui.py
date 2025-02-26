@@ -760,7 +760,7 @@ class ChatApp(QWidget):
 
         # === Lưu tin nhắn người dùng vào database ===
         db = next(get_db())
-        db_user_message = create_message_controller(db, session_id, "user", prompt_template) # Use user_message_text
+        db_user_message = create_message_controller(db, session_id, "user", user_message_text) # Use user_message_text
         db.close()
 
         # === Hiển thị tin nhắn người dùng lên GUI ===
