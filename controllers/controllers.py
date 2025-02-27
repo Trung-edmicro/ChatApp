@@ -50,7 +50,8 @@ def get_messages_by_session_id_json(db: Session, session_id: str):
             "is_selected": message.is_selected, # Thêm trường is_selected
             "sender": message.sender,
             "content": message.content,
-            "timestamp": message.timestamp.isoformat() if message.timestamp else None # Format datetime to ISO string
+            "timestamp": message.timestamp.isoformat() if message.timestamp else None, # Format datetime to ISO string
+            "is_exported": message.is_exported
         })
     return messages_data_json
 
@@ -116,6 +117,29 @@ def create_message_controller(db: Session, session_id: str, sender: str, content
     db.refresh(db_message)
     return db_message
 
+def get_message_by_id_json(db: Session, message_id: str):
+    """Lấy thông tin chi tiết của một message theo message_id và trả về cấu trúc JSON."""
+    message = db.query(models.Message).filter(models.Message.message_id == message_id).first()
+    if message:
+        return {
+            "message_id": message.message_id,
+            "sender": message.sender,
+            "content": message.content,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else None,
+            "selected_at": message.selected_at.isoformat() if message.selected_at else None
+        }
+    return None # Trả về None nếu không tìm thấy message
+
+def update_message_is_exported(db: Session, message_id: str, is_exported: bool):
+    """Cập nhật trạng thái is_exported của một message."""
+    db_message = db.query(models.Message).filter(models.Message.message_id == message_id).first()
+    if db_message:
+        db_message.is_exported = is_exported
+        db.commit()
+        db.refresh(db_message)
+        return True # Cập nhật thành công
+    return False # Message không tồn tại hoặc lỗi
+
 def create_summary_controller(db: Session, session_id: str, to_statement_index: int, summary_text: str):
     """Tạo và lưu một summary mới vào database."""
     db_summary = models.Summary(
@@ -155,7 +179,8 @@ def get_all_selected_messages_json(db: Session):
             "sender": message.sender,
             "content": message.content,
             "timestamp": message.timestamp.isoformat() if message.timestamp else None,
-            "selected_at": message.selected_at.isoformat() if message.selected_at else None # Thêm selected_at vào JSON
+            "selected_at": message.selected_at.isoformat() if message.selected_at else None, # Thêm selected_at vào JSON
+            "is_exported": message.is_exported # Thêm is_exported vào JSON
         })
     return messages_data_json
 

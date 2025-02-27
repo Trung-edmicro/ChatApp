@@ -7,8 +7,8 @@ import openai
 import google.generativeai as genai
 from google.generativeai.types import content_types
 from datetime import datetime
-from PyQt5 import QtCore
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
+from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
@@ -292,6 +292,7 @@ class ChatItem(QWidget):
         clipboard.setText(markdown_text)
 
 class ChatApp(QWidget):
+    checkbox_state_changed_signal = pyqtSignal(str, bool) # Signal phát ra khi checkbox state thay đổi (message_id, is_checked)
     def __init__(self, app, openai_api_key, gemini_api_key):
         super().__init__()
         self.app = app
@@ -312,6 +313,7 @@ class ChatApp(QWidget):
         self.selected_messages_data = []
         self.load_selected_messages_list()
         self.current_session_id = None  # Thêm biến self.current_session_id, khởi tạo là None
+        self.checkbox_state_changed_signal.connect(self.update_message_exported_status)
 
     def initUI(self):
         app_font = QFont("Inter", 12)
@@ -473,13 +475,29 @@ class ChatApp(QWidget):
             # Layout danh sách tin nhắn
         list_messages_layout = QVBoxLayout()
         list_messages_layout.setSpacing(5)  
-        list_messages_layout.setContentsMargins(5, 15, 5, 10)  
+        list_messages_layout.setContentsMargins(5, 15, 5, 10)
+
+        # Layout cho nút "Chọn tất cả / Bỏ chọn tất cả" và Label
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(5)
+
+        # Nút "Chọn tất cả / Bỏ chọn tất cả"
+        self.select_all_button = QPushButton("Chọn tất cả")
+        self.select_all_button.setStyleSheet("background-color: #2f2f2f; color: white; border-radius: 6px; font-size: 12px; font-weight: bold; padding: 5px;")
+        self.select_all_button.setFixedSize(112, 30)
+        self.select_all_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.select_all_button.setCheckable(True) # Đặt nút là checkable
+        self.select_all_button.toggled.connect(self.toggle_select_all_messages) # Kết nối với hàm toggle_select_all_messages
+        header_layout.addWidget(self.select_all_button)
 
             # Label
         self.title_label = QLabel("Danh sách các câu đã chọn")
         self.title_label.setStyleSheet("color: white; font-size: 13px; font-weight: bold; padding-bottom: 12px; border-bottom: 1px solid #2f2f2f;")
         self.title_label.setAlignment(Qt.AlignCenter)
         list_messages_layout.addWidget(self.title_label)
+        header_layout.addStretch() # Để đẩy nút "Chọn tất cả" sang trái và label sang phải
+
+        list_messages_layout.addLayout(header_layout) # Thêm header_layout vào list_messages_layout
 
             # Danh sách tin nhắn đã chọn
         self.selected_messages = QListWidget()
@@ -534,6 +552,21 @@ class ChatApp(QWidget):
         main_layout.addWidget(list_messages_widget)
         
         self.setLayout(main_layout)
+
+    def toggle_select_all_messages(self, checked):
+        """Chọn hoặc bỏ chọn tất cả tin nhắn trong danh sách tin nhắn đã chọn."""
+        for i in range(self.selected_messages.count()):
+            item = self.selected_messages.item(i)
+            widget = self.selected_messages.itemWidget(item)
+            if widget:
+                checkbox = widget.findChild(QtWidgets.QCheckBox, "message_checkbox") # Tìm checkbox trong widget
+                if checkbox:
+                    checkbox.setChecked(checked) # Set trạng thái checkbox theo trạng thái nút "Chọn tất cả"
+
+        if checked:
+            self.select_all_button.setText("Bỏ chọn tất cả")
+        else:
+            self.select_all_button.setText("Chọn tất cả")
 
     def show_session_menu(self, button, item, session_id, session_name):
         """Hiển thị menu tùy chọn cho session."""
@@ -928,20 +961,20 @@ class ChatApp(QWidget):
 
     def load_selected_messages_list(self):
         """Load danh sách các tin nhắn đã chọn từ database và hiển thị ở khung bên phải."""
-        self.selected_messages.clear() # Clear QListWidget trước khi load lại
-        self.selected_messages_data = [] # **Clear self.selected_messages_data - quan trọng**
+        self.selected_messages.clear()
+        self.selected_messages_data = []
         db = next(get_db())
-        selected_messages_data_from_db = get_all_selected_messages_json(db) # Lấy danh sách selected messages JSON TỪ DATABASE
+        selected_messages_data_from_db = get_all_selected_messages_json(db)
         db.close()
 
         if selected_messages_data_from_db:
-            # === Đồng bộ hóa self.selected_messages_data với dữ liệu từ DATABASE ===
-            self.selected_messages_data = selected_messages_data_from_db.copy() # Gán dữ liệu từ DB vào self.selected_messages_data
-            for index, message_data in enumerate(self.selected_messages_data): # Sử dụng enumerate để lấy index
-                display_text = f"{index + 1}. {message_data['content'][:50]}..." # Thêm số thứ tự vào display_text (index + 1)
-                item = QListWidgetItem(display_text)
-                item.setSizeHint(QSize(self.selected_messages.width(), 40)) # Set Size Hint cho item
-                # === Tạo WIDGET TÙY CHỈNH cho item ===
+            self.selected_messages_data = selected_messages_data_from_db.copy()
+            for index, message_data in enumerate(self.selected_messages_data):
+                display_text = f"{index + 1}. {message_data['content'][:50]}..."
+                item = QListWidgetItem()
+                item.setSizeHint(QSize(self.selected_messages.width(), 40))
+
+                # === Tạo WIDGET TÙY CHỈNH cho item (bao gồm Checkbox) ===
                 widget = QWidget()
                 widget.setStyleSheet("""
                     background-color: transparent;
@@ -950,37 +983,50 @@ class ChatApp(QWidget):
                 layout.setContentsMargins(5, 2, 5, 2)
                 layout.setSpacing(5)
 
-                # Tạo label hiển thị nội dung
+                # Checkbox cho mỗi tin nhắn
+                checkbox = QCheckBox()
+                checkbox.setObjectName("message_checkbox") # Set objectName để tìm checkbox sau này
+                checkbox.setChecked(message_data.get('is_exported', False)) # Mặc định là chọn (có thể thay đổi)
+                checkbox.stateChanged.connect(lambda state, msg_id=message_data['message_id']: self.checkbox_state_changed_signal.emit(msg_id, state == Qt.Checked)) # Phát signal khi state thay đổi
+                layout.addWidget(checkbox)
+
+                # Label hiển thị nội dung
                 metrics = QFontMetrics(self.selected_messages.font())
-                elided_text = metrics.elidedText(display_text, Qt.ElideRight, self.selected_messages.width() - 40) # Tạo elided_text
-                label = QLabel(elided_text) # **LỖI CŨ: elided_text chưa được định nghĩa ở đây! CẦN SỬA**
-                label = QLabel(elided_text) # Tạo label SAU khi có elided_text
+                elided_text = metrics.elidedText(display_text, Qt.ElideRight, self.selected_messages.width() - 70) # Giảm width để chừa chỗ cho checkbox và nút xóa
+                label = QLabel(elided_text)
                 label.setToolTip(message_data['content'])
                 label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
                 label.setStyleSheet("""color: white;""")
                 label.setAlignment(Qt.AlignVCenter)
+                layout.addWidget(label)
 
-                # Nút xóa (icon)
+                # Nút xóa (icon) (giữ nguyên)
                 delete_item_button = QPushButton()
-                delete_item_button.setIcon(QIcon("views/images/trash_icon.png")) # Đảm bảo đường dẫn icon đúng
+                delete_item_button.setIcon(QIcon("views/images/trash_icon.png"))
                 delete_item_button.setCursor(QCursor(Qt.PointingHandCursor))
                 delete_item_button.setFixedSize(18, 18)
                 delete_item_button.setStyleSheet("border: none; background: transparent;")
-                delete_item_button.clicked.connect(lambda _, item=item: self.remove_selected_message(item)) # Cần implement self.remove_selected_message
-
-                # Thêm label và nút vào layout
-                layout.addWidget(label)
-                layout.addStretch()
+                delete_item_button.clicked.connect(lambda _, item=item: self.remove_selected_message(item))
                 layout.addWidget(delete_item_button)
 
                 widget.setLayout(layout)
                 # === END WIDGET TÙY CHỈNH ===
-                item.setData(Qt.UserRole, message_data['message_id']) # Lưu message_id (nếu cần)
+                item.setData(Qt.UserRole, message_data['message_id'])
                 self.selected_messages.addItem(item)
                 self.selected_messages.setItemWidget(item, widget)
         else:
-            print("Không có tin nhắn nào được chọn.") # Log nếu không có selected messages
+            print("Không có tin nhắn nào được chọn.")
 
+    def update_message_exported_status(self, message_id, is_checked):
+        """Cập nhật trạng thái is_exported của message trong database khi checkbox thay đổi."""
+        db = next(get_db())
+        if update_message_is_exported(db, message_id, is_checked): # Gọi controller update_message_is_exported
+            db.close()
+            print(f"Message ID {message_id} is_exported status updated to: {is_checked}") # Log
+        else:
+            db.close()
+            print(f"Error updating is_exported status for Message ID {message_id}") # Log lỗi
+            
     def remove_selected_message(self, item):
         """Bỏ chọn một tin nhắn khỏi danh sách tin nhắn đã chọn (khung bên phải)."""
         message_id = item.data(Qt.UserRole) # Lấy message_id từ item data
@@ -1007,19 +1053,30 @@ class ChatApp(QWidget):
 
     def export_list_messages(self):
         """Xuất danh sách tin nhắn đã chọn ra file Docx."""
-        db = next(get_db())
-        selected_messages_data_for_export = get_all_selected_messages_json(db) # Lấy DỮ LIỆU MỚI NHẤT từ database trước khi export
-        db.close()
+        selected_messages_data_for_export = []
+
+        for i in range(self.selected_messages.count()):
+            item = self.selected_messages.item(i)
+            widget = self.selected_messages.itemWidget(item)
+            if widget:
+                checkbox = widget.findChild(QtWidgets.QCheckBox, "message_checkbox")
+                if checkbox and checkbox.isChecked(): # Kiểm tra checkbox có được tích không
+                    message_id = item.data(Qt.UserRole) # Lấy message_id từ item
+                    db = next(get_db())
+                    message_data_from_db = get_message_by_id_json(db, message_id) # Hàm mới để lấy message theo ID
+                    db.close()
+                    if message_data_from_db:
+                        selected_messages_data_for_export.append(message_data_from_db) # Thêm message data vào list xuất
 
         print(selected_messages_data_for_export) # Log dữ liệu xuất file (để debug)
 
-        if selected_messages_data_for_export: # Sử dụng dữ liệu mới nhất từ database
-            if export_to_docx(selected_messages_data_for_export): # Truyền dữ liệu mới nhất cho export_to_docx
+        if selected_messages_data_for_export:
+            if export_to_docx(selected_messages_data_for_export):
                 print("Xuất file thành công!")
             else:
                 print("Xuất file thất bại!")
         else:
-            print("Danh sách trống, không có gì để xuất.") # Log nếu không có selected messages
+            print("Danh sách trống, không có gì để xuất.")
 
     def closeEvent(self, event):
         """Xử lý sự kiện đóng cửa sổ ứng dụng."""
