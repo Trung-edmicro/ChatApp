@@ -50,6 +50,7 @@ def export_to_docx(selected_messages_data):
         subprocess.run(["pandoc", md_filename, "--from=markdown+tex_math_dollars", "-o", docx_filename], check=True)
         print(f"Đã xuất file {docx_filename}")
         open_directory(results_dir)
+        os.remove(md_filename)
         return True
     except subprocess.CalledProcessError as e:
         print(f"Lỗi khi xuất file: {e}")

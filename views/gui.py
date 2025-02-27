@@ -7,7 +7,8 @@ import openai
 import google.generativeai as genai
 from google.generativeai.types import content_types
 from datetime import datetime
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
+from PyQt5 import QtCore
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
@@ -220,9 +221,6 @@ class ChatItem(QWidget):
                 """)
                 self.web_view.hide() # ẨN WebView
                 main_layout.addWidget(self.text_edit) # Thêm QTextEdit vào layout
-        #     main_layout.addLayout(more_layout)
-        #     main_layout.addWidget(self.text_edit)
-        # self.web_view.setHtml(format_message(message))
         doc = self.text_edit.document()
         doc.setTextWidth(self.text_edit.width())
         self.text_edit.setFixedHeight(int(doc.size().height()) + 15)
@@ -256,15 +254,15 @@ class ChatItem(QWidget):
         """)
 
         # Add item
-        add_item_action = QAction(QIcon("icons/copy.png"), "Add Text", self)
+        add_item_action = QAction(QIcon("views/images/copy.png"), "Add Text", self)
         add_item_action.triggered.connect(self.add_text)
 
         # Hành động Copy Text
-        copy_text_action = QAction(QIcon("icons/copy.png"), "Copy Text", self)
+        copy_text_action = QAction(QIcon("views/images/copy.png"), "Copy Text", self)
         copy_text_action.triggered.connect(self.copy_text)
 
         # Hành động Copy Markdown
-        copy_markdown_action = QAction(QIcon("icons/markdown.png"), "Copy Markdown", self)
+        copy_markdown_action = QAction(QIcon("views/images/markdown.png"), "Copy Markdown", self)
         copy_markdown_action.triggered.connect(self.copy_markdown)
 
         # Thêm hành động vào menu
@@ -433,10 +431,6 @@ class ChatApp(QWidget):
         self.send_button = QPushButton(self)
         self.send_button.setIcon(QIcon("views/images/send_icon.png"))
         self.send_button.setCursor(QCursor(Qt.PointingHandCursor))
-        # self.send_button.setStyleSheet(
-        #     f"background-color: {styles.SEND_BUTTON_COLOR}; color: white; border-radius: {styles.SEND_BUTTON_SIZE // 2}px;"
-        #     f"width: {styles.SEND_BUTTON_SIZE}px; height: {styles.SEND_BUTTON_SIZE}px;"
-        # )
         self.send_button.setStyleSheet(f"""
             QPushButton {{
                 background-color: {styles.SEND_BUTTON_COLOR};
@@ -540,7 +534,75 @@ class ChatApp(QWidget):
         main_layout.addWidget(list_messages_widget)
         
         self.setLayout(main_layout)
-        
+
+    def show_session_menu(self, button, item, session_id, session_name):
+        """Hiển thị menu tùy chọn cho session."""
+        menu = QMenu(self)
+        menu.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        menu.setAttribute(Qt.WA_TranslucentBackground)
+        # Tùy chỉnh giao diện menu (tương tự như menu tin nhắn)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #2a2a2a;
+                border-radius: 15px;       /* Bo tròn góc menu */
+                padding: 8px;
+            }
+            QMenu::item {
+                padding: 8px;
+                min-width: 130px;
+                color: white;
+                border-radius: 10px;
+                font-size: 14px;
+            }
+            QMenu::item:selected {
+                background-color: #3c3c3c;
+            }
+        """)
+
+        # Hành động Rename (ví dụ, placeholder)
+        rename_action = QAction(QIcon("views/images/rename_icon.png"), "Rename", self) # Bạn cần icon rename.png
+        rename_action.triggered.connect(lambda: self.rename_session(session_id, session_name, item)) # Hàm rename_session cần được implement
+
+        # Hành động Delete (sử dụng lại chức năng xóa session hiện tại)
+        delete_action = QAction(QIcon("views/images/trash_icon.png"), "Delete", self)
+        delete_action.triggered.connect(lambda: self.delete_selected_session(item, session_id)) # Sử dụng lại hàm delete_selected_session
+
+        # Thêm hành động vào menu
+        menu.addAction(rename_action)
+        menu.addAction(delete_action)
+
+        # Hiển thị menu ngay tại vị trí của nút
+        menu.exec_(QCursor.pos())
+
+    # === Các hàm placeholder cho menu actions (cần implement logic thực tế) ===
+    def rename_session(self, session_id, session_name, item):
+        """Đổi tên session."""
+        new_name, ok = QInputDialog.getText(self, "Đổi tên Session", "Nhập tên mới:", text=session_name)
+        if ok and new_name:
+            db = next(get_db())
+            if update_session_name(db, session_id, new_name): # Gọi controller update_session_name
+                db.close()
+                print(f"Session '{session_name}' (ID: {session_id}) đã được đổi tên thành '{new_name}'.")
+
+                # Cập nhật tên hiển thị trên UI (trong history_list)
+                widget_item = self.history_list.itemWidget(item) # Lấy widget của item
+                layout = widget_item.layout() # Lấy layout của widget
+                label = layout.itemAt(0).widget() # Lấy label (widget đầu tiên trong layout)
+                if isinstance(label, QLabel):
+                    max_width = self.history_list.width() - 40 # Width tối đa cho text label
+                    metrics = QFontMetrics(label.font())
+                    elided_text = metrics.elidedText(new_name, Qt.ElideRight, max_width) # Tạo elided text nếu cần
+                    label.setText(elided_text) # Set text đã elide (nếu cần)
+                    label.setToolTip(new_name) # Set tooltip là tên đầy đủ
+                    self.load_sessions_from_db()
+                else:
+                    print("Không tìm thấy QLabel trong item widget để cập nhật tên.")
+            else:
+                db.close()
+                print(f"Lỗi khi đổi tên session '{session_name}' (ID: {session_id}).")
+        else:
+            print("Hủy đổi tên session hoặc tên mới không hợp lệ.")
+
 # === Function ===
     def load_sessions_from_db(self):
         db = next(get_db())
@@ -548,26 +610,25 @@ class ChatApp(QWidget):
         db.close()
 
         if sessions:
-            self.history_list.clear() # Clear list trước khi load dữ liệu mới
+            self.history_list.clear()
             self.history_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-            max_width = self.history_list.width() - 20
+            max_width = self.history_list.width() - 40  # Giảm width để chừa chỗ cho nút "More Options"
             for session_data in sessions:
                 full_text = session_data['session_name']
-
                 metrics = QFontMetrics(self.history_list.font())
                 elided_text = metrics.elidedText(full_text, Qt.ElideRight, max_width)
 
                 item = QListWidgetItem()
                 item.setData(Qt.UserRole, session_data['session_id'])
                 item.setSizeHint(QSize(self.history_list.width(), 40))
-                    
-                # Tạo widget chứa tên session và nút xóa
+
+                # Tạo widget chứa tên session và nút More Options
                 widget = QWidget()
                 widget.setStyleSheet("""
                         background-color: transparent;
                     """)
                 layout = QHBoxLayout()
-                layout.setContentsMargins(10, 0, 10, 0)
+                layout.setContentsMargins(10, 0, 10, 0) # Tăng margin phải để có khoảng cách với nút
                 layout.setSpacing(5)
 
                 # Label hiển thị session name
@@ -576,18 +637,19 @@ class ChatApp(QWidget):
                 label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
                 label.setStyleSheet("color: white;")
 
-                # Nút xóa (icon thùng rác)
-                delete_button = QPushButton()
-                delete_button.setIcon(QIcon("views/images/trash_icon.png"))
-                delete_button.setCursor(QCursor(Qt.PointingHandCursor))
-                delete_button.setFixedSize(18, 18)
-                delete_button.setStyleSheet("border: none; background: transparent;")
-                delete_button.clicked.connect(lambda _, item=item, session_id=session_data['session_id']: self.delete_selected_session(item, session_id))
+                # Nút More Options (icon 3 chấm hoặc icon khác)
+                more_options_button = QPushButton()
+                more_options_button.setIcon(QIcon("views/images/more_icon.png")) # Sử dụng lại icon more_icon hoặc thay bằng icon 3 chấm
+                more_options_button.setIconSize(QSize(18, 18))
+                more_options_button.setCursor(QCursor(Qt.PointingHandCursor))
+                more_options_button.setFixedSize(24, 24) # Kích thước nút
+                more_options_button.setStyleSheet("border: none; background: transparent;")
+                more_options_button.clicked.connect(lambda _, item=item, session_id=session_data['session_id'], session_name=session_data['session_name']: self.show_session_menu(more_options_button, item, session_id, session_name)) # Kết nối với hàm show_session_menu
 
                 # Thêm vào layout
                 layout.addWidget(label)
                 layout.addStretch()
-                layout.addWidget(delete_button)
+                layout.addWidget(more_options_button)
 
                 widget.setLayout(layout)
                 widget.setMinimumHeight(40)
@@ -595,7 +657,7 @@ class ChatApp(QWidget):
                 self.history_list.addItem(item)
                 self.history_list.setItemWidget(item, widget)
         else:
-            print("Không có session nào trong Database.") # Vẫn in log nếu không có session
+            print("Không có session nào trong Database.")
 
     def load_selected_chat(self, item):
         """Load danh sách messages của session đã chọn, LƯU SUMMARY session trước đó, và LOAD SUMMARY session hiện tại."""
@@ -797,7 +859,6 @@ class ChatApp(QWidget):
 
         self.input_field.setEnabled(False)
         self.send_button.setEnabled(False)
-        self.app.setOverrideCursor(QCursor(Qt.WaitCursor)) # Thay đổi cursor thành waiting cursor
 
         bot_reply_text = ""
         ai_sender = "system"
@@ -840,7 +901,6 @@ class ChatApp(QWidget):
         self.input_field.setEnabled(True)
         self.send_button.setEnabled(True)
         self.input_field.setFocus() # Focus lại vào ô input
-        self.app.restoreOverrideCursor() # Khôi phục cursor mặc định
 
     def clear_gemini_history(self):
         """Xóa lịch sử chat của Gemini."""

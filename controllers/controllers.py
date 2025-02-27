@@ -72,6 +72,16 @@ def create_session_controller(db: Session, session_name: str, ai_model: str, ai_
     """Tạo một session mới thông qua controller."""
     return create_session(db, session_name, ai_model, ai_max_tokens, ai_response_time) # Gọi hàm create_session đã có
 
+def update_session_name(db: Session, session_id: str, new_session_name: str):
+    """Cập nhật tên của một session."""
+    db_session = db.query(models.Session).filter(models.Session.session_id == session_id).first()
+    if db_session:
+        db_session.session_name = new_session_name
+        db.commit()
+        db.refresh(db_session)
+        return True  # Cập nhật thành công
+    return False  # Session không tồn tại hoặc lỗi
+
 def delete_session(db: Session, session_id: str):
     """Xóa một session và các messages liên quan."""
     db_session = db.query(models.Session).filter(models.Session.session_id == session_id).first()
