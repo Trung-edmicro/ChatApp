@@ -433,10 +433,34 @@ class ChatApp(QWidget):
         self.send_button = QPushButton(self)
         self.send_button.setIcon(QIcon("views/images/send_icon.png"))
         self.send_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.send_button.setStyleSheet(
-            f"background-color: {styles.SEND_BUTTON_COLOR}; color: white; border-radius: {styles.SEND_BUTTON_SIZE // 2}px;"
-            f"width: {styles.SEND_BUTTON_SIZE}px; height: {styles.SEND_BUTTON_SIZE}px;"
-        )
+        # self.send_button.setStyleSheet(
+        #     f"background-color: {styles.SEND_BUTTON_COLOR}; color: white; border-radius: {styles.SEND_BUTTON_SIZE // 2}px;"
+        #     f"width: {styles.SEND_BUTTON_SIZE}px; height: {styles.SEND_BUTTON_SIZE}px;"
+        # )
+        self.send_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {styles.SEND_BUTTON_COLOR};
+                color: white;
+                border-radius: {styles.SEND_BUTTON_SIZE // 2}px;
+                width: {styles.SEND_BUTTON_SIZE}px;
+                height: {styles.SEND_BUTTON_SIZE}px;
+                border: none; /* Loại bỏ border mặc định nếu có */
+                padding-bottom: 5px; /* Tạo khoảng cách dưới để có hiệu ứng "ấn xuống" */
+            }}
+            QPushButton:hover {{
+                background-color: #5ca9e0; /* Màu nền sáng hơn khi hover - tùy chỉnh màu */
+                transform: scale(0.95); /* Thu nhỏ kích thước 5% khi hover */
+                padding-top: 5px; /* Tạo hiệu ứng "ấn xuống" bằng cách tăng padding top */
+                padding-bottom: 0px; /* Giảm padding bottom để bù lại */
+            }}
+            QPushButton:pressed {{
+                background-color: #3c91d9; /* Màu nền khi nhấn - có thể giống màu gốc */
+                transform: scale(0.9); /* Thu nhỏ thêm một chút khi nhấn */
+                padding-top: 7px; /* Ấn xuống sâu hơn khi nhấn */
+                padding-bottom: 0px;
+            }}
+        """)
+        self.send_button.setToolTip("Ấn để gửi")
         self.send_button.clicked.connect(self.send_message)
         input_container.addWidget(self.send_button)
 
@@ -771,6 +795,10 @@ class ChatApp(QWidget):
         self.chat_display.setItemWidget(user_item, user_widget)
         self.input_field.clear()
 
+        self.input_field.setEnabled(False)
+        self.send_button.setEnabled(False)
+        self.app.setOverrideCursor(QCursor(Qt.WaitCursor)) # Thay đổi cursor thành waiting cursor
+
         bot_reply_text = ""
         ai_sender = "system"
 
@@ -807,6 +835,12 @@ class ChatApp(QWidget):
         self.chat_display.setItemWidget(bot_item, bot_widget)
 
         self.chat_display.scrollToBottom()
+
+        # Kích hoạt lại input và nút send
+        self.input_field.setEnabled(True)
+        self.send_button.setEnabled(True)
+        self.input_field.setFocus() # Focus lại vào ô input
+        self.app.restoreOverrideCursor() # Khôi phục cursor mặc định
 
     def clear_gemini_history(self):
         """Xóa lịch sử chat của Gemini."""
