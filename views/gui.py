@@ -8,14 +8,15 @@ import google.generativeai as genai
 from google.generativeai.types import content_types
 from datetime import datetime
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
-from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard
+from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox
+from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard 
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 import markdown2
 from internal.db.connection import get_db
 from controllers.controllers import *
 from views.export_docx import export_to_docx
+from views.prompt_dialog import PromptDialog # Import PromptDialog
 
 class ToggleSwitch(QWidget):
     toggled_signal = pyqtSignal(bool)
@@ -315,6 +316,9 @@ class ChatApp(QWidget):
         self.current_session_id = None  # Thêm biến self.current_session_id, khởi tạo là None
         self.checkbox_state_changed_signal.connect(self.update_message_exported_status)
 
+        self.dim_effect = QtWidgets.QGraphicsOpacityEffect() # Khởi tạo QGraphicsOpacityEffect
+        self.dim_effect.setOpacity(0.5) # Set độ mờ (0.0 - 1.0, 0.5 là mờ vừa phải)
+
     def initUI(self):
         app_font = QFont("Inter", 12)
         self.setWindowTitle("ChatApp")
@@ -428,6 +432,38 @@ class ChatApp(QWidget):
         self.input_field.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.input_field.textChanged.connect(self.adjust_input_height)
         input_container.addWidget(self.input_field, 1)
+
+        # Attachment button (THÊM ĐOẠN CODE NÀY)
+        self.attachment_button = QPushButton(self)
+        self.attachment_button.setIcon(QIcon("views/images/attach_icon.png")) # Đặt icon dấu cộng. Cần chuẩn bị file ảnh attach_icon.png
+        self.attachment_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.attachment_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {styles.SEND_BUTTON_COLOR};
+                color: white;
+                border-radius: {20 // 2}px;
+                width: {styles.SEND_BUTTON_SIZE}px;
+                height: {styles.SEND_BUTTON_SIZE}px;
+                border: none; /* Loại bỏ border mặc định nếu có */
+                padding-bottom: 5px; /* Tạo khoảng cách dưới để có hiệu ứng "ấn xuống" */
+            }}
+            QPushButton:hover {{
+                background-color: #5ca9e0; /* Màu nền sáng hơn khi hover - tùy chỉnh màu */
+                transform: scale(0.95); /* Thu nhỏ kích thước 5% khi hover */
+                padding-top: 5px; /* Tạo hiệu ứng "ấn xuống" bằng cách tăng padding top */
+                padding-bottom: 0px; /* Giảm padding bottom để bù lại */
+            }}
+            QPushButton:pressed {{
+                background-color: #3c91d9; /* Màu nền khi nhấn - có thể giống màu gốc */
+                transform: scale(0.9); /* Thu nhỏ thêm một chút khi nhấn */
+                padding-top: 7px; /* Ấn xuống sâu hơn khi nhấn */
+                padding-bottom: 0px;
+            }}
+        """)
+        self.attachment_button.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE) # Đảm bảo kích thước cố định
+        self.attachment_button.setToolTip("Thêm tệp đính kèm")
+        self.attachment_button.clicked.connect(self.show_attachment_menu) # Kết nối với hàm show_attachment_menu
+        input_container.addWidget(self.attachment_button) # Thêm vào input_container trước nút send
 
             # send button
         self.send_button = QPushButton(self)
@@ -552,6 +588,71 @@ class ChatApp(QWidget):
         main_layout.addWidget(list_messages_widget)
         
         self.setLayout(main_layout)
+
+    def show_attachment_menu(self):
+        """Hiển thị menu attachment khi nút attachment được click."""
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #2a2a2a;
+                border-radius: 15px;
+                padding: 8px;
+            }
+            QMenu::item {
+                padding: 8px 20px; /* Tăng padding ngang để có khoảng cách với icon */
+                min-width: 150px; /* Tăng min-width nếu cần */
+                color: white;
+                border-radius: 10px;
+                font-size: 14px;
+            }
+            QMenu::item:selected {
+                background-color: #3c3c3c;
+            }
+        """)
+
+        # Hành động "Select Prompt"
+        select_prompt_action = QAction(QIcon("views/images/prompt_icon.png"), "Select Prompt", self) # Cần icon upload_icon.png
+        select_prompt_action.triggered.connect(self.open_prompt_dialog) # Kết nối với hàm open_prompt_dialog
+        menu.addAction(select_prompt_action)
+
+        # Hành động "Upload File"
+        upload_file_action = QAction(QIcon("views/images/upload_icon.png"), "Upload File", self) # Cần icon upload_icon.png
+        upload_file_action.triggered.connect(self.upload_file)
+        menu.addAction(upload_file_action)
+
+        # Hành động "Sample Media"
+        sample_media_action = QAction(QIcon("views/images/media_icon.png"), "Sample Media", self) # Cần icon media_icon.png
+        sample_media_action.triggered.connect(self.sample_media)
+        menu.addAction(sample_media_action)
+
+        # Hiển thị menu ngay dưới nút attachment
+        menu.exec_(self.attachment_button.mapToGlobal(self.attachment_button.rect().bottomRight()))
+
+    def upload_file(self):
+        """Xử lý hành động "Upload File"."""
+        print("Tải lên File...")
+        # TODO: Thêm logic tải lên file
+
+    def sample_media(self):
+        """Xử lý hành động "Sample Media"."""
+        print("Chọn Sample Media...")
+        # TODO: Thêm logic chọn sample media
+
+    def open_prompt_dialog(self):
+        """Mở dialog quản lý prompts và làm mờ cửa sổ chính."""
+        self.setGraphicsEffect(self.dim_effect) # Áp dụng hiệu ứng mờ cho cửa sổ chính
+
+        self.prompt_dialog = PromptDialog(self) # Tạo instance PromptDialog
+        self.prompt_dialog.prompt_selected_signal.connect(self.insert_prompt_to_input)
+        result = self.prompt_dialog.exec_() # Hiển thị dialog MODAL
+
+        self.setGraphicsEffect(None) # Loại bỏ hiệu ứng mờ sau khi dialog đóng
+
+    def insert_prompt_to_input(self, prompt_content):
+        """Chèn nội dung prompt đã chọn vào input field."""
+        current_text = self.input_field.toPlainText() # Lấy nội dung hiện tại trong input field
+        new_text = current_text + "\n\n" + prompt_content # Thêm prompt content vào nội dung hiện tại
+        self.input_field.setText(new_text) # Set nội dung mới cho input field    
 
     def toggle_select_all_messages(self, checked):
         """Chọn hoặc bỏ chọn tất cả tin nhắn trong danh sách tin nhắn đã chọn."""
@@ -762,13 +863,23 @@ class ChatApp(QWidget):
         new_session = create_session_controller(db, session_name, ai_model, ai_max_tokens, ai_response_time) # Gọi controller để tạo session
         db.close() # Đóng database session
 
-        if new_session: # Kiểm tra nếu session tạo thành công
+        if new_session:
             print(f"Session mới đã được tạo: {new_session.session_name} (ID: {new_session.session_id})")
-            self.load_sessions_from_db() # Gọi lại hàm load_sessions_from_db để cập nhật danh sách session trên GUI
-            self.chat_display.clear() # Xóa chat display khi tạo session mới
-            self.input_field.clear() # Xóa input field khi tạo session mới
+            self.load_sessions_from_db() # Load lại sessions và cập nhật history list
+
+            # Tự động chọn session mới
+            new_session_id = new_session.session_id # Lấy session_id của session mới tạo
+            new_session_item = self.find_session_item_by_id(new_session_id) # Tìm item trong history list
+            if new_session_item:
+                self.history_list.setCurrentItem(new_session_item) # Chọn session mới
+                print(f"Session mới (ID: {new_session_id}) đã được chọn sau khi tạo.")
+            else:
+                print(f"Không tìm thấy session item cho ID: {new_session_id} sau khi tạo (ở create_new_session).")
+
+            self.chat_display.clear()
+            self.input_field.clear()
         else:
-            print("Lỗi khi tạo session mới.") # Xử lý lỗi nếu không tạo được session
+            print("Lỗi khi tạo session mới.")
 
     def delete_selected_session(self, item, session_id):
         """Xóa session hiện tại được chọn."""
@@ -863,9 +974,23 @@ class ChatApp(QWidget):
 
         # === Lấy session_id của session đang hiển thị ===
         current_session_item = self.history_list.currentItem()
+        # Kiểm tra nếu không có session nào được chọn
         if not current_session_item:
-            print("Chưa chọn session để gửi tin nhắn.")
-            return
+            print("Không có session được chọn. Tự động tạo session mới...")
+            # Tạo session mới và LẤY session_id của session vừa tạo
+            new_session_id = self.create_new_session_and_get_id() # Gọi hàm mới để tạo session và lấy ID
+            if not new_session_id: # Nếu tạo session không thành công
+                print("Lỗi tạo session mới. Không thể gửi tin nhắn.")
+                return # Dừng lại nếu tạo session lỗi
+            # Tìm item của session mới trong history list dựa trên session_id
+            new_session_item = self.find_session_item_by_id(new_session_id)
+            if new_session_item:
+                self.history_list.setCurrentItem(new_session_item) # Chọn session mới
+                print(f"Session mới (ID: {new_session_id}) đã được tạo và chọn.")
+            else:
+                print(f"Không tìm thấy session item cho ID: {new_session_id} sau khi tạo.")
+                return # Dừng lại nếu không tìm thấy item
+        current_session_item = self.history_list.currentItem() # Lấy lại current item sau khi có thể đã tạo mới    
         session_id = current_session_item.data(Qt.UserRole)
 
         prompt_template = f"""Bạn là một Giáo viên thông minh. Hãy trả lời nội dung dưới đây một cách chi tiết và rõ ràng:
@@ -935,6 +1060,34 @@ class ChatApp(QWidget):
         self.send_button.setEnabled(True)
         self.input_field.setFocus() # Focus lại vào ô input
 
+    def create_new_session_and_get_id(self):
+        """Tạo một session mới và trả về session_id của session vừa tạo.
+        Trả về None nếu tạo session không thành công."""
+        db = next(get_db())
+        session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}"
+        ai_model = "gpt" if self.is_toggle_on else "gemini"
+        ai_max_tokens = 1024
+        ai_response_time = "fast"
+
+        new_session = create_session_controller(db, session_name, ai_model, ai_max_tokens, ai_response_time)
+        db.close()
+
+        if new_session:
+            print(f"Session mới đã được tạo (trong create_new_session_and_get_id): {new_session.session_name} (ID: {new_session.session_id})")
+            self.load_sessions_from_db() # Load lại sessions để cập nhật history list
+            return new_session.session_id # TRẢ VỀ session_id của session mới tạo
+        else:
+            print("Lỗi khi tạo session mới (trong create_new_session_and_get_id).")
+            return None # Trả về None nếu tạo session lỗi
+
+    def find_session_item_by_id(self, session_id):
+        """Tìm QListWidgetItem trong history_list dựa trên session_id."""
+        for index in range(self.history_list.count()):
+            item = self.history_list.item(index)
+            if item.data(Qt.UserRole) == session_id:
+                return item
+        return None # Không tìm thấy item nào có session_id tương ứng
+    
     def clear_gemini_history(self):
         """Xóa lịch sử chat của Gemini."""
         if self.gemini_model: # Kiểm tra xem gemini_model đã được khởi tạo chưa

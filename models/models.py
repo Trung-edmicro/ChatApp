@@ -48,3 +48,14 @@ class Summary(Base):
 
     def __repr__(self):
         return f"<Summary(id={self.id}, session_id='{self.session_id}', to_statement_index={self.to_statement_index})>"
+    
+class Prompt(Base):
+    __tablename__ = "prompts"
+
+    prompt_id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self):
+        return f"<Prompt(prompt_id='{self.prompt_id}', name='{self.name}')>"    
