@@ -188,7 +188,7 @@ def get_ai_selected_question_detail(db: Session, message_id: str):
     """Xem chi tiết một câu hỏi AI được lựa chọn."""
     return db.query(models.Message).filter(
         models.Message.message_id == message_id,
-        models.Message.sender == 'AI',
+        models.Message.sender == 'system',
         models.Message.is_selected == True # Đã đổi tên cột thành is_selected
     ).first()
 
@@ -210,6 +210,7 @@ def unselect_ai_response(db: Session, message_id: str):
     if db_message:
         db_message.is_selected = False # Đã đổi tên cột thành is_selected
         db_message.selected_at = None # Xóa giá trị selected_at
+        db_message.is_exported = False # Xóa giá trị is_exported
         db.commit()
         db.refresh(db_message)
         return db_message
@@ -222,6 +223,7 @@ def clear_all_selected_messages_controller(db: Session):
     for message in selected_messages:
         message.is_selected = False
         message.selected_at = None # Xóa giá trị selected_at
+        message.is_exported = False
         count += 1
     db.commit()
     return count # Trả về số lượng tin nhắn đã bỏ chọn
