@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table('prompt',
+    op.create_table('prompts',
         sa.Column('prompt_id', sa.String(), primary_key=True, index=True), # Bỏ length=255, index=True
         sa.Column('name', sa.String()), # Bỏ length=255
         sa.Column('content', sa.String()), # Bỏ length=255
@@ -28,4 +28,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_table('prompt')
+    op.drop_table('prompts')

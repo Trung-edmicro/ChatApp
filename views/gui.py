@@ -322,6 +322,9 @@ class ChatApp(QWidget):
         self.current_session_id = None  # Thêm biến self.current_session_id, khởi tạo là None
         self.checkbox_state_changed_signal.connect(self.update_message_exported_status)
 
+        self.attached_prompt_content = "" # Thêm biến lưu content prompt đính kèm
+        self.attached_prompt_name = "" # Thêm biến lưu name prompt đính kèm
+
         self.dim_effect = QtWidgets.QGraphicsOpacityEffect() # Khởi tạo QGraphicsOpacityEffect
         self.dim_effect.setOpacity(0.5) # Set độ mờ (0.0 - 1.0, 0.5 là mờ vừa phải)
 
@@ -463,9 +466,37 @@ class ChatApp(QWidget):
         chat_layout.addWidget(self.chat_display)
         
             # Layout input
-        input_container = QHBoxLayout()
+        input_container = QVBoxLayout()
         input_container.setContentsMargins(10, 10, 10, 10)
         input_container.setSpacing(5)
+
+        # === Widget hiển thị prompt đính kèm ===
+        self.attached_prompt_widget = QWidget()
+        self.attached_prompt_layout = QHBoxLayout()
+        self.attached_prompt_widget.setLayout(self.attached_prompt_layout)
+        self.attached_prompt_widget.setStyleSheet("background-color: #333333; border-radius: 5px; padding: 5px; margin-bottom: 5px;")
+        self.attached_prompt_label = QLabel()
+        self.attached_prompt_label.setStyleSheet("color: white;")
+        self.attached_prompt_close_button = QPushButton("X")
+        self.attached_prompt_close_button.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 2px 5px;
+            }
+            QPushButton:hover {
+                background-color: #555555;
+            }
+        """)
+        self.attached_prompt_close_button.setFixedSize(20, 20)
+        self.attached_prompt_close_button.clicked.connect(self.clear_attached_prompt) # Kết nối nút X
+        self.attached_prompt_layout.addWidget(self.attached_prompt_label)
+        self.attached_prompt_layout.addStretch()
+        self.attached_prompt_layout.addWidget(self.attached_prompt_close_button)
+        self.attached_prompt_widget.hide() # Ẩn widget prompt đính kèm ban đầu
+        input_container.addWidget(self.attached_prompt_widget) # Thêm widget prompt đính kèm vào input_container
         
             # input
         self.input_field = QTextEdit(self)
@@ -543,7 +574,7 @@ class ChatApp(QWidget):
         input_container.addWidget(self.send_button)
 
         input_widget = QWidget()
-        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 20px; padding: 5px; min-height: 30px; max-height: 100px")
+        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 20px; padding: 5px; min-height: 30px; max-height: 250px") # Tăng max-height
         input_widget.setLayout(input_container)
         chat_layout.addWidget(input_widget)
 
@@ -554,7 +585,7 @@ class ChatApp(QWidget):
         self.list_messages_widget.setStyleSheet("background-color: #171717; border-radius: 10px;")  
         self.list_messages_widget.setFixedWidth(250)
 
-            # Layout danh sách tin nhắn
+        # Layout danh sách tin nhắn
         list_messages_layout = QVBoxLayout()
         list_messages_layout.setSpacing(5)  
         list_messages_layout.setContentsMargins(5, 15, 5, 10)
@@ -564,7 +595,7 @@ class ChatApp(QWidget):
         self.title_label.setAlignment(Qt.AlignCenter)
         list_messages_layout.addWidget(self.title_label)
 
-            # Danh sách tin nhắn đã chọn
+        # Danh sách tin nhắn đã chọn
         self.selected_messages = QListWidget()
         self.selected_messages.setFixedWidth(240)
         self.selected_messages.setStyleSheet("""
@@ -592,12 +623,12 @@ class ChatApp(QWidget):
         """)
         list_messages_layout.addWidget(self.selected_messages)
 
-            # Layout chứa 2 nút
+        # Layout chứa 2 nút
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
         buttons_layout.setContentsMargins(0, 0, 0, 0)  
 
-            # Nut xoa tat ca
+        # Nut xoa tat ca
         self.clear_button = QPushButton("Xóa tất cả")
         self.clear_button.setStyleSheet("background-color: #2f2f2f; color: white; border-radius: 6px; font-size: 12px; font-weight: bold; padding: 5px;")
         self.clear_button.setFixedSize(112, 30)  
@@ -605,7 +636,7 @@ class ChatApp(QWidget):
         self.clear_button.clicked.connect(self.clear_list_messages)
         buttons_layout.addWidget(self.clear_button)
 
-            # Nút "Chọn tất cả / Bỏ chọn tất cả"
+        # Nút "Chọn tất cả / Bỏ chọn tất cả"
         self.select_all_button = QPushButton("Chọn tất cả")
         self.select_all_button.setStyleSheet("background-color: #2f2f2f; color: white; border-radius: 6px; font-size: 12px; font-weight: bold; padding: 5px;")
         self.select_all_button.setFixedSize(112, 30)
@@ -692,14 +723,27 @@ class ChatApp(QWidget):
         # TODO: Thêm logic chọn sample media
 
     def open_prompt_dialog(self):
-        """Mở dialog quản lý prompts và làm mờ cửa sổ chính."""
-        self.setGraphicsEffect(self.dim_effect) # Áp dụng hiệu ứng mờ cho cửa sổ chính
+        # """Mở dialog quản lý prompts và làm mờ cửa sổ chính."""
+        # self.setGraphicsEffect(self.dim_effect) # Áp dụng hiệu ứng mờ cho cửa sổ chính
 
         self.prompt_dialog = PromptDialog(self) # Tạo instance PromptDialog
-        self.prompt_dialog.prompt_selected_signal.connect(self.insert_prompt_to_input)
+        self.prompt_dialog.prompt_selected_signal.connect(self.handle_prompt_selected) # **CHỈ KẾT NỐI VỚI handle_prompt_selected**
         result = self.prompt_dialog.exec_() # Hiển thị dialog MODAL
 
-        self.setGraphicsEffect(None) # Loại bỏ hiệu ứng mờ sau khi dialog đóng
+        # self.setGraphicsEffect(None) # Loại bỏ hiệu ứng mờ sau khi dialog đóng
+
+    def handle_prompt_selected(self, prompt_content, prompt_name):
+        """Xử lý khi prompt được chọn từ PromptDialog."""
+        self.attached_prompt_content = prompt_content # Lưu content prompt
+        self.attached_prompt_name = prompt_name # Lưu name prompt
+        self.attached_prompt_label.setText(f"Prompt: {prompt_name}") # Hiển thị tên prompt
+        self.attached_prompt_widget.show() # Hiển thị widget prompt đính kèm
+
+    def clear_attached_prompt(self):
+        """Xóa prompt đính kèm khỏi tin nhắn."""
+        self.attached_prompt_content = ""
+        self.attached_prompt_name = ""
+        self.attached_prompt_widget.hide()
 
     def insert_prompt_to_input(self, prompt_content):
         """Chèn nội dung prompt đã chọn vào input field."""
@@ -1146,7 +1190,13 @@ class ChatApp(QWidget):
         self.is_toggle_on = state
 
     def send_message(self):
-        user_message_text = self.input_field.toPlainText().strip() # Use user_message_text consistently
+        user_message_text = ""
+        if self.attached_prompt_content: # Nếu có prompt đính kèm
+            # 1. Xử lý Prompt đính kèm: Thay placeholder trong prompt đính kèm bằng tin nhắn user
+            user_message_text = self.attached_prompt_content.replace("{nội dung tin nhắn}", self.input_field.toPlainText().strip())
+            print(user_message_text)
+        else:    
+            user_message_text = self.input_field.toPlainText().strip() # Use user_message_text consistently
         if not user_message_text:
             return
 
@@ -1183,7 +1233,7 @@ class ChatApp(QWidget):
 
         # === Lưu tin nhắn người dùng vào database ===
         db = next(get_db())
-        db_user_message = create_message_controller(db, session_id, "user", user_message_text) # Use user_message_text
+        db_user_message = create_message_controller(db, session_id, "user", self.input_field.toPlainText().strip()) # Use user_message_text
         db.close()
 
         # === Hiển thị tin nhắn người dùng lên GUI ===
