@@ -3,7 +3,7 @@ from PyQt5.QtGui import QPixmap, QFont, QFontMetrics, QIcon
 from PyQt5.QtCore import Qt, QTimer
 
 
-# Thiết lập thông báo
+# Thông báo
 class ToastMessage(QLabel):
     def __init__(self, message, message_type="info", duration=3000, parent=None):
         super().__init__(message, parent)
@@ -34,7 +34,7 @@ class ToastMessage(QLabel):
         icon_button = QPushButton()
         icon_button.setIcon(QIcon(icon_path))
         icon_button.setFixedSize(30, 30)  # Kích thước cố định
-        icon_button.setStyleSheet("border: none; background: transparent;")
+        # icon_button.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(icon_button)
 
         # Nội dung thông báo
@@ -58,7 +58,6 @@ class ToastMessage(QLabel):
             self.move((parent_width - self.width()) // 2, 20)
 
         QTimer.singleShot(duration, self.close)
-
 
 def show_toast(parent, message, message_type="success", duration=3000):
     """

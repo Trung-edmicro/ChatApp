@@ -1,7 +1,6 @@
 import sys
 import re
 import json
-from views import styles
 import uuid
 import openai
 import google.generativeai as genai
@@ -9,16 +8,17 @@ from google.generativeai.types import content_types
 from datetime import datetime
 from dotenv import load_dotenv, set_key
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog
+from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard 
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-import markdown2
 from internal.db.connection import get_db
 from controllers.controllers import *
+from views import styles
 from views.export_docx import export_to_docx
 from views.prompt_dialog import PromptDialog # Import PromptDialog
 from views.utils.helpers import show_toast
+from views.utils.contains import format_message
 
 # Load biến môi trường từ file .env
 load_dotenv()
@@ -112,86 +112,16 @@ class ChatItem(QWidget):
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        font_metrics = QFontMetrics(self.text_edit.font())
-        text_width = font_metrics.width(message) + 16
-        min_width = 60
-        max_width = 500
         # Web view
         self.web_view = QWebEngineView()
         self.web_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        # Chuyển Markdown thành HTML có hỗ trợ MathJax
-        def format_message(message):
-            html_content = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <script>
-                    window.MathJax = {{
-                        tex: {{
-                            inlineMath: [['$', '$'], ['\\(', '\\)']]
-                        }},
-                        svg: {{
-                            fontCache: 'global'
-                        }}
-                    }};
-                </script>
-                <script type="text/javascript" async
-                    src="https://polyfill.io/v3/polyfill.min.js?features=es6">
-                </script>
-                <script type="text/javascript" async
-                    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-                </script>
-                <style>
-                    body {{
-                        font-size: 17px;
-                        color: white;
-                        background-color: #2E2E2E;
-                    }}
-                    ::-webkit-scrollbar {{
-                        width: 10px; /* Độ rộng thanh cuộn */
-                        height: 10px;
-                    }}
-                    ::-webkit-scrollbar-track {{
-                        background: #2E2E2E;
-                        border-radius: 10px;
-                    }}
-                    ::-webkit-scrollbar-thumb {{
-                        background: #555;
-                        border-radius: 10px;
-                        transition: background 0.3s;
-                    }}
-                    ::-webkit-scrollbar-thumb:hover {{
-                        background: #888;
-                    }}
-                    .chat-container {{
-                        display: flex;
-                        flex-direction: column;
-                        align-items: flex-start;
-                        margin-bottom: 10px;
-                        max-width: 100%;
-                    }}
-                    .ai-message {{
-                        max-width: 100%;
-                        border-radius: 12px;
-                        text-align: left;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="chat-container">
-                    <div class="ai-message">
-                        {markdown2.markdown(message, extras=["fenced-code-blocks", "tables", "strike", "mathjax"])}
-                    </div>
-                </div>
-                <script>
-                    MathJax.typesetPromise();
-                </script>
-            </body>
-            </html>
-            """
-            return html_content
         if sender == "user":
+            font_metrics = QFontMetrics(self.text_edit.font())
+            text_width = font_metrics.width(message) + 16
+            min_width = 60
+            max_width = 500
+
             self.text_edit.setStyleSheet("""
                 QTextEdit {
                     border: none;
@@ -221,15 +151,17 @@ class ChatItem(QWidget):
                         border: 1px solid #545454;
                         font-size: 14px;
                         border-radius: 12px;
-                        padding: 8px;
+                        padding: 5px 0px;
                         color: white;
                     }
                 """)
                 self.web_view.hide() # ẨN WebView
-                self.main_layout.addWidget(self.text_edit) # Thêm QTextEdit vào layout
+                self.main_layout.addWidget(self.text_edit)
+
         doc = self.text_edit.document()
         doc.setTextWidth(self.text_edit.width())
-        self.text_edit.setFixedHeight(int(doc.size().height()) + 15)
+        self.text_edit.setFixedHeight(int(doc.size().height()) + 16)
+
         # Dùng QTimer để cập nhật MathJax sau khi WebEngine tải xong
         QTimer.singleShot(100, self.update_mathjax)
 
@@ -296,6 +228,23 @@ class ChatItem(QWidget):
         clipboard = QApplication.clipboard()
         markdown_text = f"```\n{self.text_edit.toPlainText()}\n```"
         clipboard.setText(markdown_text)
+    
+    # def resizeEvent(self, event):
+    #     super().resizeEvent(event)
+    #     self.update_text_edit_size()
+
+    # def update_text_edit_size(self):
+    #     if not self.text_edit.isHidden():
+    #         doc = self.text_edit.document()
+    #         doc.setTextWidth(self.text_edit.width())  # Cập nhật độ rộng
+    #         new_height = int(doc.size().height()) + 16  # Tính lại chiều cao
+    #         self.text_edit.setFixedHeight(new_height)
+
+    #         if self.parent() and isinstance(self.parent(), QListWidget):
+    #             list_widget = self.parent()
+    #             item_index = list_widget.indexFromItem(self.parent().itemWidget(self))
+    #             if item_index.isValid():
+    #                 list_widget.item(item_index.row()).setSizeHint(self.sizeHint())
 
 class ChatApp(QWidget):
     checkbox_state_changed_signal = pyqtSignal(str, bool) # Signal phát ra khi checkbox state thay đổi (message_id, is_checked)
@@ -448,9 +397,9 @@ class ChatApp(QWidget):
                 border: none;
                 background-color: #212121;
             }}
-            QListWidget::item:hover {{
-                background-color: transparent;
-            }}
+            # QListWidget::item:hover {{
+            #     background-color: transparent;
+            # }}
             QListWidget::item:selected {{
                 background-color: transparent;
                 outline: none;
@@ -458,8 +407,10 @@ class ChatApp(QWidget):
             QListWidget:focus {{
                 outline: none;
             }}
-            {styles.SCROLLBAR_STYLES}
         """)
+        scroll_bar = self.chat_display.verticalScrollBar()
+        self.chat_display.verticalScrollBar().setSingleStep(50)
+        scroll_bar.setStyleSheet(styles.SCROLLBAR_STYLES)
         chat_layout.addWidget(self.chat_display)
         
             # Layout input
@@ -1214,11 +1165,11 @@ class ChatApp(QWidget):
                 gemini_response = self.gemini_chat.send_message(prompt_template) # **Corrected: user_message_text for Gemini**
                 bot_reply_text = gemini_response.text # Correctly get text from Gemini response
                 ai_sender = "system"
-                print(f"Gemini history: {self.gemini_chat.history}") # Debugging Gemini history
+                # print(f"Gemini history: {self.gemini_chat.history}") 
 
         except Exception as e:
-            show_toast(self, f"Lỗi khi gọi AI API: {str(e)}", "error")
             bot_reply_text = f"Lỗi khi gọi AI API: {str(e)}"
+            show_toast(self, f"{bot_reply_text}", "error")
             ai_sender = "system"
 
         # === Lưu phản hồi AI vào database ===
@@ -1444,13 +1395,11 @@ def save_api_keys(gemini_key, gpt_key, parent, dialog):
         return
     
     if gemini_key.strip():
-        # set_key(env_file, "GEMINI_API_KEY", gemini_key)
-        print(f"🔑 GEMINI_API_KEY cập nhật: {gemini_key}")
+        set_key(env_file, "GEMINI_API_KEY", gemini_key)
         show_toast(parent, "Cập nhật thành công GEM!", "success")
 
     if gpt_key.strip():
-        # set_key(env_file, "OPENAI_API_KEY", gpt_key)
-        print(f"🔑 OPENAI_API_KEY cập nhật: {gpt_key}")
+        set_key(env_file, "OPENAI_API_KEY", gpt_key)
         show_toast(parent, ".........khong thành công GPT!Cập nhật khong thành công GPT!", "error")
 
     dialog.accept()
