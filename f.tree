@@ -1,0 +1,50 @@
+├── .env
+├── .env.sample
+├── .gitignore
+├── alembic.ini
+├── chat_history.db
+├── chatapp.spec
+├── controllers
+│  ├── controllers.py
+│  ├── message_controller.py
+│  ├── session_controller.py
+│  └── summary_controller.py
+├── edmicro.ico
+├── internal
+│  └── db
+│    └── connection.py
+├── main.py
+├── migrations
+│  ├── env.py
+│  ├── README
+│  ├── script.py.mako
+│  └── versions
+│    ├── 20507ea70508_add_is_exported_column_on_message.py
+│    └── 2a1575f367ef_initial_migration_sqlite.py
+├── models
+│  ├── message_model.py
+│  ├── models.py
+│  ├── session_model.py
+│  └── summary_model.py
+├── repositories
+│  ├── message_repository.py
+│  ├── repositories.py
+│  ├── session_repository.py
+│  └── summary_repository.py
+├── requirements.txt
+├── script.iss
+└── views
+  ├── export_docx.py
+  ├── gui.py
+  ├── images
+  │  ├── add_icon.png
+  │  ├── gemini_icon.png
+  │  ├── gpt_icon.png
+  │  ├── hourglass_8721071.gif
+  │  ├── more_icon_gemini.png
+  │  ├── more_icon_gpt.png
+  │  ├── more_icon.png
+  │  ├── rename_icon.png
+  │  ├── send_icon.png
+  │  └── trash_icon.png
+  └── styles.py
