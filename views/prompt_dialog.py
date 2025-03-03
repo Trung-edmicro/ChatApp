@@ -7,31 +7,29 @@ from internal.db.connection import get_db
 from controllers.controllers import *
 
 class PromptDialog(QDialog):
-    prompt_selected_signal = pyqtSignal(str) # Signal phát ra khi prompt được chọn
+    prompt_selected_signal = pyqtSignal(str, str) # Signal phát ra khi prompt được chọn, truyền cả content và name
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Quản lý Prompts")
-        self.setModal(True) # Đặt dialog là modal (chặn tương tác với cửa sổ chính)
-        self.setFixedWidth(700) # Kích thước dialog
+        self.setModal(True)
+        self.setFixedWidth(700)
         self.setFixedHeight(500)
         self.setStyleSheet("background-color: #212121; color: white;")
+        self.selected_prompt_data = None # Thêm biến để lưu prompt data được chọn
 
         self.initUI()
-        self.load_prompts_from_db() # Load danh sách prompts khi dialog khởi tạo
+        self.load_prompts_from_db()
 
     def initUI(self):
         self.main_layout = QVBoxLayout(self)
 
         # === Layout Danh sách Prompts (bên trái) ===
         self.prompts_list_layout = QVBoxLayout()
-
-        # Label "Danh sách Prompts"
         self.prompts_label = QLabel("Danh sách Prompts")
         self.prompts_label.setStyleSheet("color: white; font-size: 14px; font-weight: bold; padding-bottom: 6px;")
         self.prompts_list_layout.addWidget(self.prompts_label)
 
-        # QListWidget hiển thị danh sách prompts
         self.prompts_list_widget = QListWidget()
         self.prompts_list_widget.setStyleSheet("""
             QListWidget {
@@ -48,10 +46,10 @@ class PromptDialog(QDialog):
                 background-color: #3c3c3c;
             }
         """)
-        self.prompts_list_widget.itemClicked.connect(self.prompt_item_clicked) # Kết nối signal itemClicked
+        self.prompts_list_widget.itemClicked.connect(self.prompt_item_clicked)
+        self.prompts_list_widget.itemDoubleClicked.connect(self.accept) # Double click chọn prompt
         self.prompts_list_layout.addWidget(self.prompts_list_widget)
 
-        # Nút "Tạo Prompt mới"
         self.create_prompt_button = QPushButton("Tạo Prompt mới")
         self.create_prompt_button.setStyleSheet(f"""
             QPushButton {{
@@ -67,19 +65,15 @@ class PromptDialog(QDialog):
             }}
         """)
         self.create_prompt_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.create_prompt_button.clicked.connect(self.create_prompt) # Kết nối signal clicked
+        self.create_prompt_button.clicked.connect(self.create_prompt)
         self.prompts_list_layout.addWidget(self.create_prompt_button)
-
 
         # === Layout Chi tiết Prompt (bên phải) ===
         self.prompt_detail_layout = QVBoxLayout()
-
-        # Label "Chi tiết Prompt"
         self.detail_label = QLabel("Chi tiết Prompt")
         self.detail_label.setStyleSheet("color: white; font-size: 14px; font-weight: bold; padding-bottom: 6px;")
         self.prompt_detail_layout.addWidget(self.detail_label)
 
-        # Input Name
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Tên Prompt")
         self.name_input.setStyleSheet(f"""
@@ -94,7 +88,6 @@ class PromptDialog(QDialog):
         """)
         self.prompt_detail_layout.addWidget(self.name_input)
 
-        # Text Editor Content
         self.content_input = QTextEdit()
         self.content_input.setPlaceholderText("Nội dung Prompt")
         self.content_input.setStyleSheet(f"""
@@ -109,7 +102,7 @@ class PromptDialog(QDialog):
         """)
         self.prompt_detail_layout.addWidget(self.content_input)
 
-        # Layout Nút "Lưu" và "Hủy"
+        # === Layout Nút "Lưu", "Chọn Prompt" và "Hủy" ===
         self.buttons_layout = QHBoxLayout()
 
         self.save_button = QPushButton("Lưu")
@@ -126,8 +119,26 @@ class PromptDialog(QDialog):
             }}
         """)
         self.save_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.save_button.clicked.connect(self.save_prompt) # Kết nối signal clicked
+        self.save_button.clicked.connect(self.save_prompt)
         self.buttons_layout.addWidget(self.save_button)
+
+        self.select_prompt_button = QPushButton("Chọn Prompt") # Nút "Chọn Prompt"
+        self.select_prompt_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #00a67d;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px;
+            }}
+            QPushButton:hover {{
+                background-color: #019d76;
+            }}
+        """)
+        self.select_prompt_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.select_prompt_button.clicked.connect(self.accept) # Kết nối với accept()
+        self.buttons_layout.addWidget(self.select_prompt_button)
+
 
         self.cancel_button = QPushButton("Hủy")
         self.cancel_button.setStyleSheet(f"""
@@ -143,100 +154,93 @@ class PromptDialog(QDialog):
             }}
         """)
         self.cancel_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.cancel_button.clicked.connect(self.reject) # reject() là hàm built-in của QDialog để đóng dialog và trả về QDialog.Rejected
+        self.cancel_button.clicked.connect(self.reject)
         self.buttons_layout.addWidget(self.cancel_button)
 
         self.prompt_detail_layout.addLayout(self.buttons_layout)
 
         # === Layout Chính (chia dialog thành 2 cột) ===
         split_layout = QHBoxLayout()
-        split_layout.addLayout(self.prompts_list_layout) # Cột bên trái (danh sách prompts)
-        split_layout.addLayout(self.prompt_detail_layout) # Cột bên phải (chi tiết prompt)
-
-        self.main_layout.addLayout(split_layout) # Thêm split_layout vào main_layout
+        split_layout.addLayout(self.prompts_list_layout)
+        split_layout.addLayout(self.prompt_detail_layout)
+        self.main_layout.addLayout(split_layout)
 
     def load_prompts_from_db(self):
-        """Load danh sách prompts từ database và hiển thị trong QListWidget."""
-        self.prompts_list_widget.clear() # Clear list widget trước khi load
+        self.prompts_list_widget.clear()
         db = next(get_db())
-        prompts = get_all_prompts_json(db) # Gọi controller để lấy danh sách prompts JSON
+        prompts = get_all_prompts_json(db)
         db.close()
 
         if prompts:
             for prompt_data in prompts:
-                item = QListWidgetItem(prompt_data['name']) # Hiển thị tên prompt trong list
-                item.setData(Qt.UserRole, prompt_data) # Lưu trữ toàn bộ prompt data vào item data
+                item = QListWidgetItem(prompt_data['name'])
+                item.setData(Qt.UserRole, prompt_data)
                 self.prompts_list_widget.addItem(item)
 
     def prompt_item_clicked(self, item):
-        """Xử lý khi một prompt item được click trong QListWidget."""
-        prompt_data = item.data(Qt.UserRole) # Lấy prompt data từ item data
+        prompt_data = item.data(Qt.UserRole)
         if prompt_data:
-            self.name_input.setText(prompt_data['name']) # Set tên prompt vào input name
-            self.content_input.setText(prompt_data['content']) # Set nội dung prompt vào input content
+            self.name_input.setText(prompt_data['name'])
+            self.content_input.setText(prompt_data['content'])
+            self.selected_prompt_data = prompt_data # Lưu prompt data khi item được click
         else:
-            self.clear_prompt_detail() # Clear input nếu không có data
+            self.clear_prompt_detail()
+            self.selected_prompt_data = None
 
     def clear_prompt_detail(self):
-        """Xóa nội dung input chi tiết prompt."""
         self.name_input.clear()
         self.content_input.clear()
+        self.selected_prompt_data = None # Reset selected_prompt_data khi clear
 
     def create_prompt(self):
-        """Xử lý logic tạo prompt mới."""
-        self.clear_prompt_detail() # Xóa input detail trước khi tạo mới
-        self.prompts_list_widget.clearSelection() # Bỏ chọn item hiện tại trong list
+        self.clear_prompt_detail()
+        self.prompts_list_widget.clearSelection()
+        self.selected_prompt_data = None # Reset selected_prompt_data khi tạo mới
 
     def save_prompt(self):
-        """Xử lý logic lưu prompt (tạo mới hoặc cập nhật)."""
         db = next(get_db())
-        prompt_id = None # Cho trường hợp tạo mới
-        current_item = self.prompts_list_widget.currentItem() # Lấy item hiện tại trong list
-        if current_item: # Nếu có item được chọn, có thể là update
+        prompt_id = None
+        current_item = self.prompts_list_widget.currentItem()
+        if current_item:
             prompt_data = current_item.data(Qt.UserRole)
             if prompt_data:
-                prompt_id = prompt_data['prompt_id'] # Lấy prompt_id để update
+                prompt_id = prompt_data['prompt_id']
 
-        name = self.name_input.text().strip() # Lấy tên prompt từ input
-        content = self.content_input.toPlainText().strip() # Lấy nội dung prompt từ input
+        name = self.name_input.text().strip()
+        content = self.content_input.toPlainText().strip()
 
-        if not name or not content: # Validate input (tên và nội dung không được trống)
+        if not name or not content:
             QMessageBox.warning(self, "Lỗi", "Vui lòng nhập đầy đủ Tên Prompt và Nội dung Prompt.")
             return
 
         if prompt_id:
-            # === Update prompt ===
-            updated_prompt = self.update_prompt_controller(db, prompt_id, name, content) # Gọi controller update
+            updated_prompt = update_prompt_controller(db, prompt_id, name, content)
             if updated_prompt:
-                print(f"Prompt ID {prompt_id} đã được cập nhật.") # Log update
+                print(f"Prompt ID {prompt_id} đã được cập nhật.")
             else:
-                print(f"Lỗi khi cập nhật Prompt ID {prompt_id}.") # Log lỗi update
+                print(f"Lỗi khi cập nhật Prompt ID {prompt_id}.")
         else:
-            # === Create new prompt ===
-            new_prompt = create_prompt_controller(db, name, content) # Gọi controller create
+            new_prompt = create_prompt_controller(db, name, content)
             if new_prompt:
-                print(f"Prompt mới '{new_prompt.name}' đã được tạo (ID: {new_prompt.prompt_id}).") # Log create
+                print(f"Prompt mới '{new_prompt.name}' đã được tạo (ID: {new_prompt.prompt_id}).")
 
         db.close()
-        self.load_prompts_from_db() # Load lại danh sách prompts để cập nhật GUI
-        self.clear_prompt_detail() # Xóa input detail sau khi lưu
-        self.prompts_list_widget.clearSelection() # Bỏ select item sau khi lưu
+        self.load_prompts_from_db()
+        self.clear_prompt_detail()
+        self.prompts_list_widget.clearSelection()
+        self.selected_prompt_data = None # Reset selected_prompt_data sau khi save
 
     def reject(self):
-        """Xử lý sự kiện nút "Hủy" (đóng dialog)."""
-        self.clear_prompt_detail() # Clear input detail khi hủy
-        super().reject() # Gọi reject() của QDialog để đóng dialog và trả về QDialog.Rejected
+        self.clear_prompt_detail()
+        self.selected_prompt_data = None # Reset selected_prompt_data khi reject
+        super().reject()
 
     def accept(self):
-        """Xử lý sự kiện nút "Chọn Prompt" (nếu có nút này)."""
-        current_item = self.prompts_list_widget.currentItem() # Lấy item hiện tại được chọn
-        if current_item:
-            prompt_data = current_item.data(Qt.UserRole) # Lấy prompt data từ item data
-            if prompt_data:
-                selected_prompt_content = prompt_data['content'] # Lấy content prompt đã chọn
-                self.prompt_selected_signal.emit(selected_prompt_content) # Phát tín hiệu prompt_selected_signal và truyền content
-                super().accept() # Chấp nhận dialog và trả về QDialog.Accepted
-            else:
-                QMessageBox.warning(self, "Lỗi", "Không có dữ liệu prompt được chọn.") # Log lỗi nếu không có data
+        """Xử lý sự kiện nút "Chọn Prompt" hoặc double-click."""
+        if self.selected_prompt_data: # Kiểm tra xem có prompt nào được chọn không
+            selected_prompt_content = self.selected_prompt_data['content']
+            selected_prompt_name = self.selected_prompt_data['name']
+            self.prompt_selected_signal.emit(selected_prompt_content, selected_prompt_name) # Phát tín hiệu với content và name
+            super().accept()
         else:
-            QMessageBox.warning(self, "Lỗi", "Vui lòng chọn một prompt từ danh sách.") # Log lỗi nếu chưa chọn prompt
+            QMessageBox.warning(self, "Lỗi", "Vui lòng chọn một prompt từ danh sách trước khi chọn.")

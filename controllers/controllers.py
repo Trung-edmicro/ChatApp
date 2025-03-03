@@ -1,5 +1,6 @@
 import json
 from sqlalchemy.orm import Session
+from models.models import Prompt
 from models import models
 from sqlalchemy import func, asc
 from datetime import datetime, timezone
@@ -240,3 +241,58 @@ def write_sessions_to_json_file(db: Session, filepath: str = "sessions_data.json
     except Exception as e:
         print(f"Error writing sessions data to JSON file: {e}") # Print error message
         return False # Indicate failure
+    
+
+def create_prompt_controller(db: Session, name: str, content: str):
+    """Tạo mới một Prompt trong database."""
+    db_prompt = Prompt(
+        prompt_id=str(uuid.uuid4()),
+        name=name,
+        content=content
+    )
+    db.add(db_prompt)
+    db.commit()
+    db.refresh(db_prompt)
+    return db_prompt
+
+def get_prompt_by_id_json(db: Session, prompt_id: str):
+    """Lấy Prompt theo ID và trả về dạng JSON serializable dictionary."""
+    prompt = db.query(Prompt).filter(Prompt.prompt_id == prompt_id).first()
+    if prompt:
+        return {
+            "prompt_id": prompt.prompt_id,
+            "name": prompt.name,
+            "content": prompt.content,
+            "created_at": prompt.created_at.isoformat() if prompt.created_at else None,
+        }
+    return None
+
+def get_all_prompts_json(db: Session):
+    """Lấy tất cả Prompts và trả về dạng list JSON serializable dictionaries."""
+    prompts = db.query(Prompt).all()
+    return [{
+        "prompt_id": prompt.prompt_id,
+        "name": prompt.name,
+        "content": prompt.content,
+        "created_at": prompt.created_at.isoformat() if prompt.created_at else None,
+    } for prompt in prompts]
+
+def update_prompt_controller(db: Session, prompt_id: str, name: str, content: str):
+    """Cập nhật một Prompt đã tồn tại."""
+    db_prompt = db.query(Prompt).filter(Prompt.prompt_id == prompt_id).first()
+    if db_prompt:
+        db_prompt.name = name
+        db_prompt.content = content
+        db.commit()
+        db.refresh(db_prompt)
+        return db_prompt
+    return None
+
+def delete_prompt_controller(db: Session, prompt_id: str):
+    """Xóa một Prompt khỏi database."""
+    db_prompt = db.query(Prompt).filter(Prompt.prompt_id == prompt_id).first()
+    if db_prompt:
+        db.delete(db_prompt)
+        db.commit()
+        return True
+    return False    
