@@ -54,7 +54,7 @@ class PromptDialog(QDialog):
         self.create_prompt_button = QPushButton("Tạo Prompt mới")
         self.create_prompt_button.setStyleSheet(f"""
             QPushButton {{
-                background-color: {styles.SEND_BUTTON_COLOR};
+                background-color: #8bc34a;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -237,11 +237,15 @@ class PromptDialog(QDialog):
             self.content_input.setText(prompt_data['content'])
             self.selected_prompt_data = prompt_data
             self.delete_button_ui.setEnabled(True) # **Enable nút Xóa khi chọn item**
+            self.name_input.setEnabled(True) # **Enable khi chọn prompt**
+            self.content_input.setEnabled(True) # **Enable khi chọn prompt**
         else:
             self.clear_prompt_detail()
             self.selected_prompt_data = None
             self.delete_button_ui.setEnabled(False) # **Disable nút Xóa nếu không có item nào được chọn**
-
+            self.name_input.setEnabled(False) # **Disable khi không chọn prompt**
+            self.content_input.setEnabled(False) # **Disable khi không chọn prompt**
+            
     def clear_prompt_detail(self):
         self.name_input.clear()
         self.content_input.clear()
@@ -250,7 +254,27 @@ class PromptDialog(QDialog):
     def create_prompt(self):
         self.clear_prompt_detail()
         self.prompts_list_widget.clearSelection()
-        self.selected_prompt_data = None # Reset selected_prompt_data khi tạo mới
+        self.selected_prompt_data = None
+
+        # === Tạo "prompt giả" ở cuối danh sách ===
+        dummy_prompt_name = "Tạo prompt mới"
+        dummy_item = QListWidgetItem(dummy_prompt_name)
+        dummy_item.setData(Qt.UserRole, "dummy") # Đánh dấu là "dummy"
+        self.prompts_list_widget.addItem(dummy_item) # **Thêm xuống cuối danh sách**
+        self.prompts_list_widget.setCurrentItem(dummy_item) # Chọn item "dummy"
+        self.name_input.setFocus() # Focus vào ô tên prompt để nhập liệu
+
+        # === Disable/Enable các UI elements ===
+        self.create_prompt_button.setEnabled(False) # Disable nút "Tạo Prompt mới"
+        self.delete_button_ui.setEnabled(False) # Disable nút "Xóa"
+        self.select_prompt_button.setEnabled(False) # Disable nút "Chọn Prompt"
+        self.prompts_list_widget.setEnabled(False) # Disable danh sách prompts
+
+        # Enable các input fields và nút Lưu, Hủy
+        self.name_input.setEnabled(True)
+        self.content_input.setEnabled(True)
+        self.save_button.setEnabled(True) # Đảm bảo nút Lưu được enable (có thể đã enable rồi)
+        self.cancel_button.setEnabled(True) # Đảm bảo nút Hủy được enable (có thể đã enable rồi)
 
     def save_prompt(self):
         db = next(get_db())
@@ -258,8 +282,10 @@ class PromptDialog(QDialog):
         current_item = self.prompts_list_widget.currentItem()
         if current_item:
             prompt_data = current_item.data(Qt.UserRole)
-            if prompt_data:
-                prompt_id = prompt_data['prompt_id']
+            # Kiểm tra xem prompt_data có phải là dictionary trước khi truy cập 'prompt_id'
+            if isinstance(prompt_data, dict):
+                if prompt_data:
+                    prompt_id = prompt_data['prompt_id']
 
         name = self.name_input.text().strip()
         content = self.content_input.toPlainText().strip()
@@ -281,14 +307,45 @@ class PromptDialog(QDialog):
 
         db.close()
         self.load_prompts_from_db()
+
+        # === Select the newly created prompt ===
+        if new_prompt: # Only select if a new prompt was actually created
+            new_prompt_id = new_prompt.prompt_id
+            for i in range(self.prompts_list_widget.count()):
+                item = self.prompts_list_widget.item(i)
+                item_data = item.data(Qt.UserRole)
+                if isinstance(item_data, dict) and item_data.get('prompt_id') == new_prompt_id:
+                    self.prompts_list_widget.setCurrentItem(item) # Select the item
+                    break # Exit loop once found and selected
+
+
         self.clear_prompt_detail()
         self.prompts_list_widget.clearSelection()
         self.selected_prompt_data = None # Reset selected_prompt_data sau khi save
 
     def reject(self):
+        # === Xóa "prompt giả" nếu có (tìm từ cuối danh sách) ===
+        for i in range(self.prompts_list_widget.count() - 1, -1, -1): # Duyệt từ cuối danh sách lên đầu
+            item = self.prompts_list_widget.item(i)
+            if item and item.data(Qt.UserRole) == "dummy":
+                self.prompts_list_widget.takeItem(i) # Xóa item "dummy"
+                break # Dừng lại sau khi xóa "dummy" item đầu tiên tìm thấy từ cuối
+
         self.clear_prompt_detail()
-        self.selected_prompt_data = None # Reset selected_prompt_data khi reject
-        super().reject()
+        self.selected_prompt_data = None
+
+        # === Re-enable các UI elements ===
+        self.create_prompt_button.setEnabled(True) # Enable nút "Tạo Prompt mới"
+        self.delete_button_ui.setEnabled(False) # Disable nút "Xóa" (chỉ enable khi chọn prompt)
+        self.select_prompt_button.setEnabled(True) # Enable nút "Chọn Prompt"
+        self.prompts_list_widget.setEnabled(True) # Enable danh sách prompts
+
+        # Disable input fields (chỉ enable khi chọn prompt hoặc tạo mới)
+        self.name_input.setEnabled(False)
+        self.content_input.setEnabled(False)
+
+        # **KHÔNG GỌI super().reject() NỮA ĐỂ TRÁNH ĐÓNG DIALOG**
+        # super().reject() # **ĐÃ XÓA DÒNG NÀY**
 
     def accept(self):
         """Xử lý sự kiện nút "Chọn Prompt" hoặc double-click."""
@@ -332,4 +389,9 @@ class PromptDialog(QDialog):
             else:
                 print(f"Lỗi khi xóa Prompt ID {prompt_id} ('{prompt_name}').")
         else:
-            print(f"Hủy xóa prompt '{prompt_name}'.")        
+            print(f"Hủy xóa prompt '{prompt_name}'.")
+
+    def closeEvent(self, event):
+        """Xử lý sự kiện đóng dialog (ví dụ khi click nút X trên window)."""
+        self.reject() # Gọi reject() để thực hiện hành động hủy (xóa prompt giả, khôi phục UI)
+        event.accept() # Chấp nhận sự kiện đóng, cho phép dialog đóng        
