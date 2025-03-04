@@ -5,6 +5,7 @@ from PyQt5.QtGui import QFont, QCursor, QIcon
 from views import styles
 from internal.db.connection import get_db
 from controllers.controllers import *
+from views.utils.helpers import show_toast
 
 class PromptDialog(QDialog):
     prompt_selected_signal = pyqtSignal(str, str) # Signal phát ra khi prompt được chọn, truyền cả content và name
@@ -297,14 +298,17 @@ class PromptDialog(QDialog):
             updated_prompt = update_prompt_controller(db, prompt_id, name, content)
             if updated_prompt:
                 print(f"Prompt ID {prompt_id} đã được cập nhật.")
+                show_toast(self, f"Prompt '{name}' đã được cập nhật thành công!", "success") # Toast thành công
                 prompt_to_select_id = prompt_id # Lưu prompt_id để chọn lại sau khi load
             else:
                 print(f"Lỗi khi cập nhật Prompt ID {prompt_id}.")
+                show_toast(self, f"Lỗi cập nhật prompt '{name}'. Vui lòng thử lại!", "error") # Toast lỗi
                 prompt_to_select_id = None # Không chọn lại nếu lỗi
         else: # Trường hợp TẠO MỚI prompt
             new_prompt = create_prompt_controller(db, name, content)
             if new_prompt:
                 print(f"Prompt mới '{new_prompt.name}' đã được tạo (ID: {new_prompt.prompt_id}).")
+                show_toast(self, f"Prompt '{name}' đã được tạo thành công!", "success") # Toast thành công
                 prompt_to_select_id = new_prompt.prompt_id # Lưu prompt_id để chọn sau khi load
                 # === Re-enable các UI elements sau khi lưu thành công ===
                 self.create_prompt_button.setEnabled(True) # Enable nút "Tạo Prompt mới"
@@ -314,6 +318,7 @@ class PromptDialog(QDialog):
 
             else:
                 print(f"Lỗi khi tạo prompt mới.")
+                show_toast(self, f"Lỗi tạo prompt '{name}'. Vui lòng thử lại!", "error") # Toast lỗi
                 prompt_to_select_id = None # Không chọn lại nếu lỗi
         db.close()
         self.load_prompts_from_db()
@@ -365,6 +370,7 @@ class PromptDialog(QDialog):
 
             if deleted:
                 print(f"Prompt ID {prompt_id} ('{prompt_name}') đã được xóa.")
+                show_toast(self, f"Prompt '{prompt_name}' đã được xóa thành công!", "success") # Toast thành
                 self.load_prompts_from_db() # Tải lại danh sách prompts
                 self.clear_prompt_detail() # Clear form chi tiết
                 self.selected_prompt_data = None # Reset selected_prompt_data
@@ -372,6 +378,7 @@ class PromptDialog(QDialog):
                 self.delete_button_ui.setEnabled(False) # **Disable nút Xóa sau khi xóa thành công**
             else:
                 print(f"Lỗi khi xóa Prompt ID {prompt_id} ('{prompt_name}').")
+                show_toast(self, f"Lỗi xóa prompt '{prompt_name}'. Vui lòng thử lại!", "error") # Toast lỗi
         else:
             print(f"Hủy xóa prompt '{prompt_name}'.")
 

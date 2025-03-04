@@ -13,6 +13,7 @@ from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTime
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from internal.db.connection import get_db
 from controllers.controllers import *
+from controllers.api_handler import *
 from views import styles
 from views.export_docx import export_to_docx
 from views.prompt_dialog import PromptDialog # Import PromptDialog
@@ -1155,6 +1156,10 @@ class ChatApp(QWidget):
             user_message_text = self.input_field.toPlainText().strip() # Use user_message_text consistently
         if not user_message_text:
             return
+        
+        # === Giả định: Thu thập đường dẫn file từ UI ở đây ===
+        image_file_paths = [r"E:\Edmicro\ChatApp\views\images\add_icon.png", r"E:\Edmicro\ChatApp\views\images\gemini_icon.png", r"E:\Edmicro\ChatApp\views\images\more_icon_gpt.png"] # Ví dụ: ["path/to/image1.png", "path/to/image2.jpg"]
+        document_file_paths = [r"E:\Edmicro\Tool_tao_de_v2\result\output_docx\Đề_1.docx", r"E:\Edmicro\Tool_tao_de_v2\result\output_docx\Đề_2.docx"] # Ví dụ: ["path/to/doc1.docx"]
 
         # === Lấy session_id của session đang hiển thị ===
         current_session_item = self.history_list.currentItem()
@@ -1187,12 +1192,29 @@ class ChatApp(QWidget):
             + Không được sử dụng \frac, thay vào đó sử dụng \dfrac
         """
 
-        # === Lưu tin nhắn người dùng vào database ===
+        # === Gọi API thông qua api_handler.py ===
+        api_response = call_ai_api(
+            prompt_template, # user_message_text thay bằng prompt_template
+            self.is_toggle_on,
+            self.gemini_chat,
+            self.openai_client,
+            image_files=image_file_paths, # Truyền danh sách đường dẫn file ảnh
+            document_files=document_file_paths, # Truyền danh sách đường dẫn file tài liệu
+            parent_widget=self # Truyền parent_widget để show_toast nếu cần
+        )
+
+        if api_response: # Kiểm tra nếu gọi API thành công (không bị lỗi)
+            bot_reply_text, ai_sender = api_response
+        else: # Xử lý lỗi nếu call_ai_api trả về None
+            bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)." # Thông báo lỗi chung
+            ai_sender = "system"
+
+        # === Lưu tin nhắn người dùng vào database (giữ nguyên) ===
         db = next(get_db())
         db_user_message = create_message_controller(db, session_id, "user", self.input_field.toPlainText().strip()) # Use user_message_text
         db.close()
 
-        # === Hiển thị tin nhắn người dùng lên GUI ===
+        # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===
         user_item = QListWidgetItem()
         user_widget = ChatItem(db_user_message.message_id, db_user_message.content, sender="user", chat_app=self)
         user_item.setSizeHint(user_widget.sizeHint())
@@ -1203,36 +1225,12 @@ class ChatApp(QWidget):
         self.input_field.setEnabled(False)
         self.send_button.setEnabled(False)
 
-        bot_reply_text = ""
-        ai_sender = "system"
-
-        try:
-            if self.is_toggle_on: # Toggle ON: OpenAI/ChatGPT
-                print("Gọi OpenAI/ChatGPT API")
-                openai_response = self.openai_client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[{"role": "user", "content": prompt_template}] # **Corrected: user_message_text for OpenAI**
-                )
-                bot_reply_text = openai_response.choices[0].message.content.strip() # Correctly get text from OpenAI response
-                ai_sender = "system"
-            else: # Toggle OFF: Gemini
-                print("Gọi Gemini API")
-                gemini_response = self.gemini_chat.send_message(prompt_template) # **Corrected: user_message_text for Gemini**
-                bot_reply_text = gemini_response.text # Correctly get text from Gemini response
-                ai_sender = "system"
-                # print(f"Gemini history: {self.gemini_chat.history}") 
-
-        except Exception as e:
-            bot_reply_text = f"Lỗi khi gọi AI API: {str(e)}"
-            show_toast(self, f"{bot_reply_text}", "error")
-            ai_sender = "system"
-
-        # === Lưu phản hồi AI vào database ===
+        # === Lưu phản hồi AI vào database (giữ nguyên) ===
         db = next(get_db())
         db_bot_message = create_message_controller(db, session_id, ai_sender, bot_reply_text)
         db.close()
 
-        # === Hiển thị phản hồi AI lên GUI ===
+        # === Hiển thị phản hồi AI lên GUI (giữ nguyên) ===
         bot_item = QListWidgetItem()
         bot_widget = ChatItem(db_bot_message.message_id, db_bot_message.content, sender="system", chat_app=self)
         bot_item.setSizeHint(bot_widget.sizeHint())
@@ -1241,7 +1239,7 @@ class ChatApp(QWidget):
 
         self.chat_display.scrollToBottom()
 
-        # Kích hoạt lại input và nút send
+        # Kích hoạt lại input và nút send (giữ nguyên)
         self.input_field.setEnabled(True)
         self.send_button.setEnabled(True)
         self.input_field.setFocus() # Focus lại vào ô input
