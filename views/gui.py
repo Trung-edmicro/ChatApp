@@ -7,7 +7,7 @@ import google.generativeai as genai
 from google.generativeai.types import content_types
 from datetime import datetime
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
+from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard 
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
@@ -346,8 +346,8 @@ class ChatApp(QWidget):
 
         # Layout chức năng 
         method_layout = QHBoxLayout()
-        method_layout.setSpacing(0)
         method_layout.setContentsMargins(0, 0, 0, 0)
+        method_layout.setSpacing(0)
 
             # Toggle AI
         self.toggle_switch = ToggleSwitch()
@@ -458,6 +458,11 @@ class ChatApp(QWidget):
         self.input_field.textChanged.connect(self.adjust_input_height)
         input_container.addWidget(self.input_field, 1)
 
+        # Layout button
+        button_container = QHBoxLayout()
+        button_container.setContentsMargins(0, 0, 0, 0)
+        button_container.setSpacing(0)
+
         # Attachment button (THÊM ĐOẠN CODE NÀY)
         self.attachment_button = QPushButton(self)
         self.attachment_button.setIcon(QIcon("views/images/attach_icon.png")) # Đặt icon dấu cộng. Cần chuẩn bị file ảnh attach_icon.png
@@ -466,9 +471,7 @@ class ChatApp(QWidget):
             QPushButton {{
                 background-color: {styles.SEND_BUTTON_COLOR};
                 color: white;
-                border-radius: {20 // 2}px;
-                width: {styles.SEND_BUTTON_SIZE}px;
-                height: {styles.SEND_BUTTON_SIZE}px;
+                border-radius: {styles.SEND_BUTTON_SIZE // 2}px;
                 border: none; /* Loại bỏ border mặc định nếu có */
                 padding-bottom: 5px; /* Tạo khoảng cách dưới để có hiệu ứng "ấn xuống" */
             }}
@@ -488,7 +491,11 @@ class ChatApp(QWidget):
         self.attachment_button.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE) # Đảm bảo kích thước cố định
         self.attachment_button.setToolTip("Thêm tệp đính kèm")
         self.attachment_button.clicked.connect(self.show_attachment_menu) # Kết nối với hàm show_attachment_menu
-        input_container.addWidget(self.attachment_button) # Thêm vào input_container trước nút send
+        button_container.addWidget(self.attachment_button) # Thêm vào input_container trước nút send
+
+        spacer_middle = QWidget()
+        spacer_middle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        button_container.addWidget(spacer_middle)
 
             # send button
         self.send_button = QPushButton(self)
@@ -499,8 +506,6 @@ class ChatApp(QWidget):
                 background-color: {styles.SEND_BUTTON_COLOR};
                 color: white;
                 border-radius: {styles.SEND_BUTTON_SIZE // 2}px;
-                width: {styles.SEND_BUTTON_SIZE}px;
-                height: {styles.SEND_BUTTON_SIZE}px;
                 border: none; /* Loại bỏ border mặc định nếu có */
                 padding-bottom: 5px; /* Tạo khoảng cách dưới để có hiệu ứng "ấn xuống" */
             }}
@@ -517,12 +522,15 @@ class ChatApp(QWidget):
                 padding-bottom: 0px;
             }}
         """)
+        self.send_button.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE) # Đảm bảo kích thước cố định
         self.send_button.setToolTip("Ấn để gửi")
         self.send_button.clicked.connect(self.send_message)
-        input_container.addWidget(self.send_button)
+        button_container.addWidget(self.send_button)
+
+        input_container.addLayout(button_container)
 
         input_widget = QWidget()
-        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 20px; padding: 5px; min-height: 30px; max-height: 250px") # Tăng max-height
+        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 14px; padding: 5px; min-height: 30px; max-height: 150px") # Tăng max-height
         input_widget.setLayout(input_container)
         chat_layout.addWidget(input_widget)
 
