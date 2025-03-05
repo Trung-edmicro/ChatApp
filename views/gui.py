@@ -8,8 +8,8 @@ from google.generativeai.types import content_types
 from datetime import datetime
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
-from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard 
-from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint
+from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard, QMovie
+from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint, QThread
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from internal.db.connection import get_db
 from controllers.controllers import *
@@ -20,6 +20,33 @@ from views.prompt_dialog import PromptDialog # Import PromptDialog
 from views.utils.helpers import show_toast
 from views.utils.contains import format_message, contains_latex
 from views.utils.config import set_api_keys
+
+class ApiThread(QThread):
+    finished = pyqtSignal(object)  # Tín hiệu gửi kết quả API về GUI
+
+    def __init__(self, prompt_template, is_toggle_on, gemini_chat, openai_client, image_files, document_files, session_id, parent_widget):
+        super().__init__()
+        self.prompt_template = prompt_template
+        self.is_toggle_on = is_toggle_on
+        self.gemini_chat = gemini_chat
+        self.openai_client = openai_client
+        self.image_files = image_files
+        self.document_files = document_files
+        self.session_id = session_id
+        self.parent_widget = parent_widget
+
+    def run(self):
+        # === Gọi API thông qua api_handler.py ===
+        api_response = call_ai_api(
+            self.prompt_template,
+            self.is_toggle_on,
+            self.gemini_chat,
+            self.openai_client,
+            image_files=self.image_files,
+            document_files=self.document_files,
+            parent_widget=self.parent_widget
+        )
+        self.finished.emit(api_response) 
 
 class ToggleSwitch(QWidget):
     toggled_signal = pyqtSignal(bool)
@@ -227,22 +254,22 @@ class ChatItem(QWidget):
         markdown_text = f"```\n{self.text_edit.toPlainText()}\n```"
         clipboard.setText(markdown_text)
     
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.update_text_edit_size()
+    # def resizeEvent(self, event):
+    #     super().resizeEvent(event)
+    #     self.update_text_edit_size()
 
-    def update_text_edit_size(self):
-        if not self.text_edit.isHidden():
-            doc = self.text_edit.document()
-            doc.setTextWidth(self.text_edit.width())  # Cập nhật độ rộng
-            new_height = int(doc.size().height()) + 16  # Tính lại chiều cao
-            self.text_edit.setFixedHeight(new_height)
+    # def update_text_edit_size(self):
+    #     if not self.text_edit.isHidden():
+    #         doc = self.text_edit.document()
+    #         doc.setTextWidth(self.text_edit.width())  # Cập nhật độ rộng
+    #         new_height = int(doc.size().height()) + 16  # Tính lại chiều cao
+    #         self.text_edit.setFixedHeight(new_height)
 
-            if self.parent() and isinstance(self.parent(), QListWidget):
-                list_widget = self.parent()
-                item_index = list_widget.indexFromItem(self.parent().itemWidget(self))
-                if item_index.isValid():
-                    list_widget.item(item_index.row()).setSizeHint(self.sizeHint())
+    #         if self.parent() and isinstance(self.parent(), QListWidget):
+    #             list_widget = self.parent()
+    #             item_index = list_widget.indexFromItem(self.parent().itemWidget(self))
+    #             if item_index.isValid():
+    #                 list_widget.item(item_index.row()).setSizeHint(self.sizeHint())
 
 class ChatApp(QWidget):
     checkbox_state_changed_signal = pyqtSignal(str, bool) # Signal phát ra khi checkbox state thay đổi (message_id, is_checked)
@@ -402,9 +429,9 @@ class ChatApp(QWidget):
                 border: none;
                 background-color: #212121;
             }}
-            # QListWidget::item:hover {{
-            #     background-color: transparent;
-            # }}
+            QListWidget::item:hover {{
+                background-color: transparent;
+            }}
             QListWidget::item:selected {{
                 background-color: transparent;
                 outline: none;
@@ -427,25 +454,25 @@ class ChatApp(QWidget):
         self.attached_prompt_widget = QWidget()
         self.attached_prompt_layout = QHBoxLayout()
         self.attached_prompt_widget.setLayout(self.attached_prompt_layout)
-        self.attached_prompt_widget.setStyleSheet("background-color: #333333; border-radius: 5px; padding: 5px; margin-bottom: 5px; max-height: 40px")
+        self.attached_prompt_widget.setStyleSheet("background-color: #333333; border-radius: 8px; padding: 5px; margin-bottom: 5px; max-height: 40px")
         self.attached_prompt_label = QLabel()
         self.attached_prompt_label.setStyleSheet("color: white;")
 
-        self.attached_prompt_close_button = QPushButton("X")
+        self.attached_prompt_close_button = QPushButton()
+        self.attached_prompt_close_button.setIcon(QIcon("views/images/close_icon.png"))
+        self.attached_prompt_close_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.attached_prompt_close_button.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: white;
                 border: none;
                 border-radius: 5px;
-                padding: 2px 5px;
             }
             QPushButton:hover {
                 background-color: #555555;
             }
         """)
-        self.attached_prompt_close_button.setFixedSize(20, 20)
-        self.attached_prompt_close_button.clicked.connect(self.clear_attached_prompt) # Kết nối nút X
+        self.attached_prompt_close_button.setFixedSize(18, 18)
+        self.attached_prompt_close_button.clicked.connect(self.clear_attached_prompt)
 
         self.attached_prompt_layout.addWidget(self.attached_prompt_label)
         self.attached_prompt_layout.addStretch()
@@ -471,20 +498,18 @@ class ChatApp(QWidget):
         input_container.addWidget(self.input_field, 1)
 
         # Layout button
-        button_container = QHBoxLayout()
-        button_container.setContentsMargins(0, 0, 0, 0)
-        button_container.setSpacing(0)
+        self.button_container = QHBoxLayout()
+        self.button_container.setContentsMargins(0, 0, 0, 0)
+        self.button_container.setSpacing(0)
 
         # Attachment button (THÊM ĐOẠN CODE NÀY)
         self.attachment_button = QPushButton(self)
-        self.attachment_button.setIcon(QIcon("views/images/attach_icon.png"))
+        self.attachment_button.setIcon(QIcon("views/images/plus_icon.png"))
         self.attachment_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.attachment_button.setStyleSheet(f"""
             QPushButton {{
-                background-color: {styles.SEND_BUTTON_COLOR};
-                color: white;
                 border-radius: {styles.SEND_BUTTON_SIZE // 2}px;
-                border: none; /* Loại bỏ border mặc định nếu có */
+                border: 1px solid #FFFFFF;
                 padding-bottom: 5px; /* Tạo khoảng cách dưới để có hiệu ứng "ấn xuống" */
             }}
             QPushButton:hover {{
@@ -503,11 +528,11 @@ class ChatApp(QWidget):
         self.attachment_button.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE) # Đảm bảo kích thước cố định
         self.attachment_button.setToolTip("Thêm tệp đính kèm")
         self.attachment_button.clicked.connect(self.show_attachment_menu) # Kết nối với hàm show_attachment_menu
-        button_container.addWidget(self.attachment_button) # Thêm vào input_container trước nút send
+        self.button_container.addWidget(self.attachment_button) # Thêm vào input_container trước nút send
 
         spacer_middle = QWidget()
         spacer_middle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        button_container.addWidget(spacer_middle)
+        self.button_container.addWidget(spacer_middle)
 
             # send button
         self.send_button = QPushButton(self)
@@ -537,9 +562,24 @@ class ChatApp(QWidget):
         self.send_button.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE) # Đảm bảo kích thước cố định
         self.send_button.setToolTip("Ấn để gửi")
         self.send_button.clicked.connect(self.send_message)
-        button_container.addWidget(self.send_button)
+        self.button_container.addWidget(self.send_button)
 
-        input_container.addLayout(button_container)
+        self.loading_label = QLabel(self)
+        self.loading_label.setMovie(QMovie("views/images/loading_gif.gif"))
+        self.loading_label.setAlignment(Qt.AlignCenter)  
+        self.loading_label.setStyleSheet(f"""
+            QLabel {{
+                background-color: {styles.SEND_BUTTON_COLOR};
+                color: white;
+                border-radius: {styles.SEND_BUTTON_SIZE // 2}px;
+                border: none; /* Loại bỏ border mặc định nếu có */
+            }}
+        """)
+        self.loading_label.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE)
+        self.loading_label.hide()
+        self.button_container.addWidget(self.loading_label)
+
+        input_container.addLayout(self.button_container)
 
         input_widget = QWidget()
         input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 14px; padding: 5px; min-height: 30px; max-height: 150px")
@@ -557,7 +597,7 @@ class ChatApp(QWidget):
 
         # Layout danh sách tin nhắn
         list_messages_layout = QVBoxLayout()
-        list_messages_layout.setSpacing(5)  
+        list_messages_layout.setSpacing(5)
         list_messages_layout.setContentsMargins(5, 15, 5, 10)
 
         self.title_label = QLabel("Danh sách các câu đã chọn")
@@ -1236,24 +1276,99 @@ class ChatApp(QWidget):
             + Không được sử dụng \frac, thay vào đó sử dụng \dfrac
         """
 
-        # === Gọi API thông qua api_handler.py ===
-        api_response = call_ai_api(
-            prompt_template, # user_message_text thay bằng prompt_template
+        self.send_button.hide()
+        self.loading_label.movie().start()
+        self.loading_label.show()
+
+        # Chạy API trong luồng riêng
+        self.api_thread = ApiThread(
+            prompt_template,
             self.is_toggle_on,
             self.gemini_chat,
             self.openai_client,
-            image_files=self.image_file_paths, # Truyền danh sách đường dẫn file ảnh
-            document_files=self.document_file_paths, # Truyền danh sách đường dẫn file tài liệu
-            parent_widget=self # Truyền parent_widget để show_toast nếu cần
+            self.image_file_paths,
+            self.document_file_paths,
+            session_id,
+            self
         )
+        self.api_thread.finished.connect(self.handle_api_response)
+        self.api_thread.start()
 
-        if api_response: # Kiểm tra nếu gọi API thành công (không bị lỗi)
-            bot_reply_text, ai_sender = api_response          
-        else: # Xử lý lỗi nếu call_ai_api trả về None
-            bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)." # Thông báo lỗi chung
-            ai_sender = "system"
+        # api_response = call_ai_api(
+        #     prompt_template, # user_message_text thay bằng prompt_template
+        #     self.is_toggle_on,
+        #     self.gemini_chat,
+        #     self.openai_client,
+        #     image_files=self.image_file_paths, # Truyền danh sách đường dẫn file ảnh
+        #     document_files=self.document_file_paths, # Truyền danh sách đường dẫn file tài liệu
+        #     parent_widget=self # Truyền parent_widget để show_toast nếu cần
+        # )
+
+        # if api_response: # Kiểm tra nếu gọi API thành công (không bị lỗi)
+        #     bot_reply_text, ai_sender = api_response          
+        # else: # Xử lý lỗi nếu call_ai_api trả về None
+        #     bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)." # Thông báo lỗi chung
+        #     ai_sender = "system"
 
         # === Lưu tin nhắn người dùng vào database (giữ nguyên) ===
+        # db = next(get_db())
+        # db_user_message = create_message_controller(
+        #     db,
+        #     session_id,
+        #     "user",
+        #     self.input_field.toPlainText().strip(), # Use user_message_text
+        #     images_path=json.dumps(self.image_file_paths), # Lưu list đường dẫn ảnh
+        #     files_path=json.dumps(self.document_file_paths) # Lưu list đường dẫn file
+        # )
+        # self.image_file_paths = [] # Clear image paths
+        # self.document_file_paths = [] # Clear document paths
+        # db.close()
+
+        # # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===
+        # user_item = QListWidgetItem()
+        # user_widget = ChatItem(db_user_message.message_id, db_user_message.content, sender="user", chat_app=self)
+        # user_item.setSizeHint(user_widget.sizeHint())
+        # self.chat_display.addItem(user_item)
+        # self.chat_display.setItemWidget(user_item, user_widget)
+        # self.input_field.clear()
+
+        # self.input_field.setEnabled(False)
+        # self.send_button.setEnabled(False)
+
+        # # === Lưu phản hồi AI vào database (giữ nguyên) ===
+        # db = next(get_db())
+        # db_bot_message = create_message_controller(db, session_id, ai_sender, bot_reply_text, "", "")
+        # db.close()
+
+        # # === Hiển thị phản hồi AI lên GUI (giữ nguyên) ===
+        # bot_item = QListWidgetItem()
+        # bot_widget = ChatItem(db_bot_message.message_id, db_bot_message.content, sender="system", chat_app=self)
+        # bot_item.setSizeHint(bot_widget.sizeHint())
+        # self.chat_display.addItem(bot_item)
+        # self.chat_display.setItemWidget(bot_item, bot_widget)
+
+        # self.chat_display.scrollToBottom()
+
+        # # Kích hoạt lại input và nút send (giữ nguyên)
+        # self.input_field.setEnabled(True)
+        # self.send_button.setEnabled(True)
+        # self.input_field.setFocus() # Focus lại vào ô input
+        
+    def handle_api_response(self, api_response):
+        session_id = self.api_thread.session_id
+
+        # Dừng loading và đặt lại icon ban đầu
+        self.loading_label.movie().stop()
+        self.loading_label.hide()
+        self.send_button.show()
+
+        # Xử lý phản hồi API
+        if api_response:
+            bot_reply_text, ai_sender = api_response
+        else:
+            bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)."
+            ai_sender = "system"
+
         db = next(get_db())
         db_user_message = create_message_controller(
             db,
