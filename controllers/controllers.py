@@ -97,7 +97,7 @@ def delete_session_controller(db: Session, session_id: str):
     """Xóa một session mới thông qua controller."""
     return delete_session(db, session_id) # Gọi hàm delete_session đã có
 
-def create_message_controller(db: Session, session_id: str, sender: str, content: str):
+def create_message_controller(db: Session, session_id: str, sender: str, content: str, images_path: str, files_path: str):
     """Tạo và lưu một message mới vào database."""
     # Lấy statement_index tiếp theo cho session
     last_message = db.query(models.Message).filter(models.Message.session_id == session_id).order_by(models.Message.statement_index.desc()).first()
@@ -111,7 +111,9 @@ def create_message_controller(db: Session, session_id: str, sender: str, content
         statement_index=next_statement_index,
         sender=sender,
         content=content,
-        timestamp=datetime.now(tz=timezone.utc) # Lưu thời gian UTC
+        timestamp=datetime.now(tz=timezone.utc), # Lưu thời gian UTC
+        images_path=images_path,
+        files_path=files_path,
     )
     db.add(db_message)
     db.commit()

@@ -7,7 +7,7 @@ import google.generativeai as genai
 from google.generativeai.types import content_types
 from datetime import datetime
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
+from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard 
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
@@ -347,8 +347,8 @@ class ChatApp(QWidget):
 
         # Layout chức năng 
         method_layout = QHBoxLayout()
-        method_layout.setSpacing(0)
         method_layout.setContentsMargins(0, 0, 0, 0)
+        method_layout.setSpacing(0)
 
             # Toggle AI
         self.toggle_switch = ToggleSwitch()
@@ -459,6 +459,11 @@ class ChatApp(QWidget):
         self.input_field.textChanged.connect(self.adjust_input_height)
         input_container.addWidget(self.input_field, 1)
 
+        # Layout button
+        button_container = QHBoxLayout()
+        button_container.setContentsMargins(0, 0, 0, 0)
+        button_container.setSpacing(0)
+
         # Attachment button (THÊM ĐOẠN CODE NÀY)
         self.attachment_button = QPushButton(self)
         self.attachment_button.setIcon(QIcon("views/images/attach_icon.png")) # Đặt icon dấu cộng. Cần chuẩn bị file ảnh attach_icon.png
@@ -467,9 +472,7 @@ class ChatApp(QWidget):
             QPushButton {{
                 background-color: {styles.SEND_BUTTON_COLOR};
                 color: white;
-                border-radius: {20 // 2}px;
-                width: {styles.SEND_BUTTON_SIZE}px;
-                height: {styles.SEND_BUTTON_SIZE}px;
+                border-radius: {styles.SEND_BUTTON_SIZE // 2}px;
                 border: none; /* Loại bỏ border mặc định nếu có */
                 padding-bottom: 5px; /* Tạo khoảng cách dưới để có hiệu ứng "ấn xuống" */
             }}
@@ -489,7 +492,11 @@ class ChatApp(QWidget):
         self.attachment_button.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE) # Đảm bảo kích thước cố định
         self.attachment_button.setToolTip("Thêm tệp đính kèm")
         self.attachment_button.clicked.connect(self.show_attachment_menu) # Kết nối với hàm show_attachment_menu
-        input_container.addWidget(self.attachment_button) # Thêm vào input_container trước nút send
+        button_container.addWidget(self.attachment_button) # Thêm vào input_container trước nút send
+
+        spacer_middle = QWidget()
+        spacer_middle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        button_container.addWidget(spacer_middle)
 
             # send button
         self.send_button = QPushButton(self)
@@ -500,8 +507,6 @@ class ChatApp(QWidget):
                 background-color: {styles.SEND_BUTTON_COLOR};
                 color: white;
                 border-radius: {styles.SEND_BUTTON_SIZE // 2}px;
-                width: {styles.SEND_BUTTON_SIZE}px;
-                height: {styles.SEND_BUTTON_SIZE}px;
                 border: none; /* Loại bỏ border mặc định nếu có */
                 padding-bottom: 5px; /* Tạo khoảng cách dưới để có hiệu ứng "ấn xuống" */
             }}
@@ -518,12 +523,15 @@ class ChatApp(QWidget):
                 padding-bottom: 0px;
             }}
         """)
+        self.send_button.setFixedSize(styles.SEND_BUTTON_SIZE, styles.SEND_BUTTON_SIZE) # Đảm bảo kích thước cố định
         self.send_button.setToolTip("Ấn để gửi")
         self.send_button.clicked.connect(self.send_message)
-        input_container.addWidget(self.send_button)
+        button_container.addWidget(self.send_button)
+
+        input_container.addLayout(button_container)
 
         input_widget = QWidget()
-        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 20px; padding: 5px; min-height: 30px; max-height: 250px") # Tăng max-height
+        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 14px; padding: 5px; min-height: 30px; max-height: 150px") # Tăng max-height
         input_widget.setLayout(input_container)
         chat_layout.addWidget(input_widget)
 
@@ -1112,20 +1120,18 @@ class ChatApp(QWidget):
             # Lấy history từ Gemini chat (hoặc OpenAI nếu dùng OpenAI)
             # === Serialize self.gemini_chat.history to JSON string ===
             history_json_string = ""
-            if self.gemini_chat and self.gemini_chat.history:
-                history_json_string = json.dumps([
-                    {
-                        "role": chat_turn.role,
-                        "parts": [
-                            { # Thay đổi cách lưu part
-                                "type": "text", # Thêm type để phân biệt text/media
-                                "text": part.text # Lưu text part như bình thường
-                            }
-                            for part in chat_turn.parts
-                        ]
-                    }
-                    for chat_turn in self.gemini_chat.history
-                ], ensure_ascii=False)
+            history_json_string = json.dumps([
+                {
+                    "role": chat_turn.role,
+                    "parts": [
+                        # Sử dụng hàm helper để xử lý logic phân biệt text/media
+                        part.text or f"{part.inline_data.mime_type} attachment" if not part.text else part.text # Lưu text hoặc placeholder
+                        for part in chat_turn.parts 
+                    ]
+                }
+                for chat_turn in self.gemini_chat.history
+            ], ensure_ascii=False)
+
             if history_json_string:
                 summary_text = history_json_string # Lưu JSON string vào summary_text
 
@@ -1135,10 +1141,10 @@ class ChatApp(QWidget):
                     existing_summary.summary_text = summary_text
                     existing_summary.to_statement_index = to_statement_index
                     db.commit()
-                    print(f"Summary (JSON - lưu đường dẫn file) đã được cập nhật cho session ID: {session_id}") # Log update
+                    print(f"Summary (JSON - sửa lỗi list comprehension) đã được cập nhật cho session ID: {session_id}") # Log update
                 else:
                     create_summary_controller(db, session_id, to_statement_index, summary_text)
-                    print(f"Summary (JSON - lưu đường dẫn file) đã được tạo cho session ID: {session_id}") # Log create
+                    print(f"Summary (JSON - sửa lỗi list comprehension) đã được tạo cho session ID: {session_id}") # Log create
             else:
                 print(f"Không có history để lưu summary cho session ID: {session_id}")
 
@@ -1218,7 +1224,16 @@ class ChatApp(QWidget):
 
         # === Lưu tin nhắn người dùng vào database (giữ nguyên) ===
         db = next(get_db())
-        db_user_message = create_message_controller(db, session_id, "user", self.input_field.toPlainText().strip()) # Use user_message_text
+        db = next(get_db())
+        db_user_message = create_message_controller(
+            db,
+            session_id,
+            "user",
+            self.input_field.toPlainText().strip(), # Use user_message_text
+            images_path=json.dumps(image_file_paths), # Lưu list đường dẫn ảnh
+            files_path=json.dumps(document_file_paths) # Lưu list đường dẫn file
+        )
+        db.close()
         db.close()
 
         # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===
@@ -1234,7 +1249,7 @@ class ChatApp(QWidget):
 
         # === Lưu phản hồi AI vào database (giữ nguyên) ===
         db = next(get_db())
-        db_bot_message = create_message_controller(db, session_id, ai_sender, bot_reply_text)
+        db_bot_message = create_message_controller(db, session_id, ai_sender, bot_reply_text, "", "")
         db.close()
 
         # === Hiển thị phản hồi AI lên GUI (giữ nguyên) ===
@@ -1427,3 +1442,4 @@ class ChatApp(QWidget):
         print("Ứng dụng đang đóng...") # Log
         self.save_current_session_summary() # Lưu summary của session hiện tại trước khi đóng
         event.accept() # Chấp nhận sự kiện đóng cửa sổ, ứng dụng sẽ đóng
+  
