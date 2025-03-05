@@ -24,7 +24,7 @@ from views.utils.config import set_api_keys
 
 
 class AttachedFileItem(QWidget):
-    file_removed_signal = pyqtSignal(str, str) # Signal to emit filename and file_type when removed
+    file_removed_signal = pyqtSignal(str, str)
     def __init__(self, filename, file_type):
         super().__init__()
         self.filename = filename
@@ -52,7 +52,7 @@ class AttachedFileItem(QWidget):
 
         # Delete button
         delete_button = QPushButton()
-        delete_button.setIcon(QIcon("views/images/close_icon.png")) # Use your close icon (X)
+        delete_button.setIcon(QIcon("views/images/close_icon.png")) # Sử dụng icon close (X) của bạn
         delete_button.setCursor(QCursor(Qt.PointingHandCursor))
         delete_button.setStyleSheet("""
             QPushButton {
@@ -60,12 +60,12 @@ class AttachedFileItem(QWidget):
                 border: none;
             }
             QPushButton:hover {
-                background-color: #555555; /* Optional hover effect */
+                background-color: #555555; /* Hiệu ứng hover tùy chọn */
                 border-radius: 6px;
             }
         """)
         delete_button.setFixedSize(16, 16)
-        delete_button.clicked.connect(self.emit_remove_signal) # Connect to emit signal function
+        delete_button.clicked.connect(self.emit_remove_signal) # Kết nối với hàm emit_remove_signal
         self.layout.addWidget(delete_button)
 
         self.setStyleSheet("background-color: #333333; border-radius: 6px;") # Style for each file item
@@ -75,8 +75,9 @@ class AttachedFileItem(QWidget):
         self.file_removed_signal.emit(self.filename, self.file_type)
 
 class AttachedFilesWidget(QWidget):
-    def __init__(self):
+    def __init__(self, parent_chat_app):
         super().__init__()
+        self.parent_chat_app = parent_chat_app # Lưu instance ChatApp
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(10)
@@ -100,7 +101,8 @@ class AttachedFilesWidget(QWidget):
 
     def add_file_item(self, filename, file_type):
         file_item = AttachedFileItem(filename, file_type)
-        self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, file_item) # Insert before the stretch
+        file_item.file_removed_signal.connect(self.remove_file_item) # Đúng # Kết nối tín hiệu ở đây
+        self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, file_item)
 
     def remove_file_item(self, filename, file_type):
         """Remove file item from widget and ChatApp's file lists."""
@@ -115,15 +117,14 @@ class AttachedFilesWidget(QWidget):
 
                     # Remove from ChatApp's file lists
                     if file_type == "image":
-                        if filename in [os.path.basename(path) for path in self.parent_chat_app.image_file_paths]: # Check filename in list
-                             self.parent_chat_app.image_file_paths = [path for path in self.parent_chat_app.image_file_paths if os.path.basename(path) != filename] # Remove by filename
+                        if filename in [os.path.basename(path) for path in self.parent_chat_app.image_file_paths]:
+                            self.parent_chat_app.image_file_paths = [path for path in self.parent_chat_app.image_file_paths if os.path.basename(path) != filename]
                     elif file_type == "document":
-                         if filename in [os.path.basename(path) for path in self.parent_chat_app.document_file_paths]: # Check filename in list
-                            self.parent_chat_app.document_file_paths = [path for path in self.parent_chat_app.document_file_paths if os.path.basename(path) != filename] # Remove by filename
+                        if filename in [os.path.basename(path) for path in self.parent_chat_app.document_file_paths]:
+                            self.parent_chat_app.document_file_paths = [path for path in self.parent_chat_app.document_file_paths if os.path.basename(path) != filename]
 
-                    self.parent_chat_app.update_attached_files_display() # Refresh display
-                    break # Exit loop after finding and removing
-
+                    self.parent_chat_app.update_attached_files_display() # Cập nhật hiển thị
+                    break # Thoát vòng lặp sau khi tìm và xóa    
 
     def clear_files(self):
         for i in reversed(range(self.scroll_layout.count())):
@@ -135,7 +136,7 @@ class AttachedFilesWidget(QWidget):
 class ApiThread(QThread):
     finished = pyqtSignal(object)  # Tín hiệu gửi kết quả API về GUI
 
-    def __init__(self, prompt_template, is_toggle_on, gemini_chat, openai_client, image_files, document_files, session_id, parent_widget):
+    def __init__(self, prompt_template, is_toggle_on, gemini_chat, openai_client, history, image_files, document_files, session_id, parent_widget):
         super().__init__()
         self.prompt_template = prompt_template
         self.is_toggle_on = is_toggle_on
@@ -804,7 +805,6 @@ class ChatApp(QWidget):
         self.hidden_x = 0  # Initialize hidden_x
 
 # === Function ===
-
     def show_attachment_menu(self):
         """Hiển thị menu attachment khi nút attachment được click."""
         menu = QMenu(self)
@@ -876,6 +876,16 @@ class ChatApp(QWidget):
                 self.image_file_paths.extend(selected_files) # Add selected files to image_file_paths
                 self.update_attached_files_display() # Update display
                 print(f"Chọn Sample Media: {self.image_file_paths}") # Log uploaded image files
+
+    def update_attached_files_display(self):
+        """Cập nhật hiển thị các file đính kèm."""
+        self.attached_files_widget.clear_files() # Clear existing display
+        for file_path in self.image_file_paths:
+            filename = os.path.basename(file_path)
+            self.attached_files_widget.add_file_item(filename, "image")
+        for file_path in self.document_file_paths:
+            filename = os.path.basename(file_path)
+            self.attached_files_widget.add_file_item(filename, "document")
 
     def update_attached_files_display(self):
         """Cập nhật hiển thị các file đính kèm."""
