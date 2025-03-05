@@ -13,6 +13,7 @@ from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTime
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from internal.db.connection import get_db
 from controllers.controllers import *
+from controllers.api_handler import *
 from views import styles
 from views.export_docx import export_to_docx
 from views.prompt_dialog import PromptDialog # Import PromptDialog
@@ -1096,7 +1097,7 @@ class ChatApp(QWidget):
     def save_current_session_summary(self, session_id_to_save=None):
         """Lưu hoặc cập nhật summary của session hiện tại (hoặc session_id được truyền vào)."""
         session_id = session_id_to_save # Sử dụng session_id truyền vào, hoặc session hiện tại nếu không có tham số
-        
+
         if not session_id: # Nếu không có session_id truyền vào, lấy session hiện tại từ history_list
             current_session_item = self.history_list.currentItem()
             if current_session_item:
@@ -1115,7 +1116,13 @@ class ChatApp(QWidget):
                 history_json_string = json.dumps([
                     {
                         "role": chat_turn.role,
-                        "parts": [part.text for part in chat_turn.parts] # Lưu parts dưới dạng list text
+                        "parts": [
+                            { # Thay đổi cách lưu part
+                                "type": "text", # Thêm type để phân biệt text/media
+                                "text": part.text # Lưu text part như bình thường
+                            }
+                            for part in chat_turn.parts
+                        ]
                     }
                     for chat_turn in self.gemini_chat.history
                 ], ensure_ascii=False)
@@ -1128,10 +1135,10 @@ class ChatApp(QWidget):
                     existing_summary.summary_text = summary_text
                     existing_summary.to_statement_index = to_statement_index
                     db.commit()
-                    print(f"Summary (JSON) đã được cập nhật cho session ID: {session_id}") # Log update
+                    print(f"Summary (JSON - lưu đường dẫn file) đã được cập nhật cho session ID: {session_id}") # Log update
                 else:
                     create_summary_controller(db, session_id, to_statement_index, summary_text)
-                    print(f"Summary (JSON) đã được tạo cho session ID: {session_id}") # Log create
+                    print(f"Summary (JSON - lưu đường dẫn file) đã được tạo cho session ID: {session_id}") # Log create
             else:
                 print(f"Không có history để lưu summary cho session ID: {session_id}")
 
@@ -1151,10 +1158,14 @@ class ChatApp(QWidget):
             # 1. Xử lý Prompt đính kèm: Thay placeholder trong prompt đính kèm bằng tin nhắn user
             user_message_text = self.attached_prompt_content.replace("{nội dung tin nhắn}", self.input_field.toPlainText().strip())
             print(user_message_text)
-        else:    
+        else:
             user_message_text = self.input_field.toPlainText().strip() # Use user_message_text consistently
         if not user_message_text:
             return
+
+        # === Giả định: Thu thập đường dẫn file từ UI ở đây ===
+        image_file_paths = [r"D:\Edmicro\Tools\ChatApp\views\images\add_icon.png", r"D:\Edmicro\Tools\ChatApp\views\images\gemini_icon.png", r"D:\Edmicro\Tools\ChatApp\views\images\more_icon_gpt.png"] # Ví dụ: ["path/to/image1.png", "path/to/image2.jpg"]
+        document_file_paths = [r"D:\Edmicro\Tools\ChatApp\results\selected_messages_20250228_142218.docx", r"D:\Edmicro\Tools\ChatApp\results\selected_messages_20250301_190346.docx"] # Ví dụ: ["path/to/doc1.docx"]
 
         # === Lấy session_id của session đang hiển thị ===
         current_session_item = self.history_list.currentItem()
@@ -1172,10 +1183,11 @@ class ChatApp(QWidget):
             if new_session_item:
                 self.history_list.setCurrentItem(new_session_item) # Chọn session mới
                 print(f"Session mới (ID: {new_session_id}) đã được tạo và chọn.")
+                self.load_selected_chat(new_session_item) # Explicitly call load_selected_chat
             else:
                 print(f"Không tìm thấy session item cho ID: {new_session_id} sau khi tạo.")
                 return # Dừng lại nếu không tìm thấy item
-        current_session_item = self.history_list.currentItem() # Lấy lại current item sau khi có thể đã tạo mới    
+        current_session_item = self.history_list.currentItem() # Lấy lại current item sau khi có thể đã tạo mới
         session_id = current_session_item.data(Qt.UserRole)
 
         prompt_template = f"""Bạn là một Giáo viên thông minh. Hãy trả lời nội dung dưới đây một cách chi tiết và rõ ràng:
@@ -1187,12 +1199,29 @@ class ChatApp(QWidget):
             + Không được sử dụng \frac, thay vào đó sử dụng \dfrac
         """
 
-        # === Lưu tin nhắn người dùng vào database ===
+        # === Gọi API thông qua api_handler.py ===
+        api_response = call_ai_api(
+            prompt_template, # user_message_text thay bằng prompt_template
+            self.is_toggle_on,
+            self.gemini_chat,
+            self.openai_client,
+            image_files=image_file_paths, # Truyền danh sách đường dẫn file ảnh
+            document_files=document_file_paths, # Truyền danh sách đường dẫn file tài liệu
+            parent_widget=self # Truyền parent_widget để show_toast nếu cần
+        )
+
+        if api_response: # Kiểm tra nếu gọi API thành công (không bị lỗi)
+            bot_reply_text, ai_sender = api_response
+        else: # Xử lý lỗi nếu call_ai_api trả về None
+            bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)." # Thông báo lỗi chung
+            ai_sender = "system"
+
+        # === Lưu tin nhắn người dùng vào database (giữ nguyên) ===
         db = next(get_db())
         db_user_message = create_message_controller(db, session_id, "user", self.input_field.toPlainText().strip()) # Use user_message_text
         db.close()
 
-        # === Hiển thị tin nhắn người dùng lên GUI ===
+        # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===
         user_item = QListWidgetItem()
         user_widget = ChatItem(db_user_message.message_id, db_user_message.content, sender="user", chat_app=self)
         user_item.setSizeHint(user_widget.sizeHint())
@@ -1203,36 +1232,12 @@ class ChatApp(QWidget):
         self.input_field.setEnabled(False)
         self.send_button.setEnabled(False)
 
-        bot_reply_text = ""
-        ai_sender = "system"
-
-        try:
-            if self.is_toggle_on: # Toggle ON: OpenAI/ChatGPT
-                print("Gọi OpenAI/ChatGPT API")
-                openai_response = self.openai_client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[{"role": "user", "content": prompt_template}] # **Corrected: user_message_text for OpenAI**
-                )
-                bot_reply_text = openai_response.choices[0].message.content.strip() # Correctly get text from OpenAI response
-                ai_sender = "system"
-            else: # Toggle OFF: Gemini
-                print("Gọi Gemini API")
-                gemini_response = self.gemini_chat.send_message(prompt_template) # **Corrected: user_message_text for Gemini**
-                bot_reply_text = gemini_response.text # Correctly get text from Gemini response
-                ai_sender = "system"
-                # print(f"Gemini history: {self.gemini_chat.history}") 
-
-        except Exception as e:
-            bot_reply_text = f"Lỗi khi gọi AI API: {str(e)}"
-            show_toast(self, f"{bot_reply_text}", "error")
-            ai_sender = "system"
-
-        # === Lưu phản hồi AI vào database ===
+        # === Lưu phản hồi AI vào database (giữ nguyên) ===
         db = next(get_db())
         db_bot_message = create_message_controller(db, session_id, ai_sender, bot_reply_text)
         db.close()
 
-        # === Hiển thị phản hồi AI lên GUI ===
+        # === Hiển thị phản hồi AI lên GUI (giữ nguyên) ===
         bot_item = QListWidgetItem()
         bot_widget = ChatItem(db_bot_message.message_id, db_bot_message.content, sender="system", chat_app=self)
         bot_item.setSizeHint(bot_widget.sizeHint())
@@ -1241,7 +1246,7 @@ class ChatApp(QWidget):
 
         self.chat_display.scrollToBottom()
 
-        # Kích hoạt lại input và nút send
+        # Kích hoạt lại input và nút send (giữ nguyên)
         self.input_field.setEnabled(True)
         self.send_button.setEnabled(True)
         self.input_field.setFocus() # Focus lại vào ô input
