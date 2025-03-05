@@ -10,7 +10,7 @@ from datetime import datetime
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QScrollArea, QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard, QMovie
-from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint, QThread
+from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint, QThread, QEvent
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from internal.db.connection import get_db
 from controllers.controllers import *
@@ -606,6 +606,7 @@ class ChatApp(QWidget):
 
             # input
         self.input_field = QTextEdit(self)
+        self.input_field.setAttribute(Qt.WA_InputMethodEnabled, True)
         self.input_field.setPlaceholderText("Nhập nội dung...")
         self.input_field.setStyleSheet(
             f"border: none; background-color: {styles.BACKGROUND_COLOR_INPUT}; color: {styles.TEXT_COLOR}; padding: 8px;"
@@ -614,6 +615,7 @@ class ChatApp(QWidget):
         self.input_field.setFixedHeight(styles.INPUT_FIELD_HEIGHT)
         self.input_field.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         # self.input_field.textChanged.connect(self.adjust_input_height)
+        self.input_field.installEventFilter(self)
         input_container.addWidget(self.input_field, 1)
 
         # Layout button
@@ -1359,6 +1361,17 @@ class ChatApp(QWidget):
     def update_toggle_state(self, state):
         self.is_toggle_on = state
 
+    def eventFilter(self, obj, event):
+        if obj == self.input_field and event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_Return:
+                if event.modifiers() == Qt.NoModifier:  # ✅ Nhấn Enter để gửi
+                    self.send_message()
+                    return True
+                elif event.modifiers() == Qt.ShiftModifier:  # ✅ Shift + Enter để xuống dòng
+                    self.input_field.insertPlainText("\n")
+                    return True
+        return super().eventFilter(obj, event)
+    
     def send_message(self):
         user_message_text = ""
         if self.attached_prompt_content: # Nếu có prompt đính kèm
@@ -1404,6 +1417,7 @@ class ChatApp(QWidget):
         self.send_button.hide()
         self.loading_label.movie().start()
         self.loading_label.show()
+        self.input_field.setEnabled(False)
 
         # Chạy API trong luồng riêng
         self.api_thread = ApiThread(
