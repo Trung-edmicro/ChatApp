@@ -7,7 +7,7 @@ import google.generativeai as genai
 from google.generativeai.types import content_types
 from datetime import datetime
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
+from PyQt5.QtWidgets import QFileDialog, QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard 
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
@@ -276,6 +276,10 @@ class ChatApp(QWidget):
         self.dim_effect.setOpacity(0.5) # Set độ mờ (0.0 - 1.0, 0.5 là mờ vừa phải)
 
         self.list_messages_widget.setMaximumWidth(250)
+
+        # Lists to store file paths
+        self.image_file_paths = []
+        self.document_file_paths = []
     
     def initUI(self):
         app_font = QFont("Inter", 12)
@@ -671,13 +675,25 @@ class ChatApp(QWidget):
 
     def upload_file(self):
         """Xử lý hành động "Upload File"."""
-        print("Tải lên File...")
-        # TODO: Thêm logic tải lên file
+        file_dialog = QFileDialog()
+        file_dialog.setNameFilter("Documents (*.docx *.pdf)") # Show all files filter
+        file_dialog.setFileMode(QFileDialog.ExistingFiles) # Allow selecting multiple files
+        if file_dialog.exec_():
+            selected_files = file_dialog.selectedFiles()
+            if selected_files:
+                self.document_file_paths.extend(selected_files) # Add selected files to document_file_paths
+                print(f"Tải lên Files: {self.document_file_paths}") # Log uploaded document files
 
     def sample_media(self):
         """Xử lý hành động "Sample Media"."""
-        print("Chọn Sample Media...")
-        # TODO: Thêm logic chọn sample media
+        file_dialog = QFileDialog()
+        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg)") # Filter for images and videos
+        file_dialog.setFileMode(QFileDialog.ExistingFiles) # Allow selecting multiple files
+        if file_dialog.exec_():
+            selected_files = file_dialog.selectedFiles()
+            if selected_files:
+                self.image_file_paths.extend(selected_files) # Add selected files to image_file_paths
+                print(f"Chọn Sample Media: {self.image_file_paths}") # Log uploaded image files
 
     def open_prompt_dialog(self):
         # """Mở dialog quản lý prompts và làm mờ cửa sổ chính."""
@@ -1168,11 +1184,7 @@ class ChatApp(QWidget):
             user_message_text = self.input_field.toPlainText().strip() # Use user_message_text consistently
         if not user_message_text:
             return
-
-        # === Giả định: Thu thập đường dẫn file từ UI ở đây ===
-        image_file_paths = [r"D:\Edmicro\Tools\ChatApp\views\images\add_icon.png", r"D:\Edmicro\Tools\ChatApp\views\images\gemini_icon.png", r"D:\Edmicro\Tools\ChatApp\views\images\more_icon_gpt.png"] # Ví dụ: ["path/to/image1.png", "path/to/image2.jpg"]
-        document_file_paths = [r"D:\Edmicro\Tools\ChatApp\results\selected_messages_20250228_142218.docx", r"D:\Edmicro\Tools\ChatApp\results\selected_messages_20250301_190346.docx"] # Ví dụ: ["path/to/doc1.docx"]
-
+        
         # === Lấy session_id của session đang hiển thị ===
         current_session_item = self.history_list.currentItem()
         # Kiểm tra nếu không có session nào được chọn
@@ -1211,29 +1223,29 @@ class ChatApp(QWidget):
             self.is_toggle_on,
             self.gemini_chat,
             self.openai_client,
-            image_files=image_file_paths, # Truyền danh sách đường dẫn file ảnh
-            document_files=document_file_paths, # Truyền danh sách đường dẫn file tài liệu
+            image_files=self.image_file_paths, # Truyền danh sách đường dẫn file ảnh
+            document_files=self.document_file_paths, # Truyền danh sách đường dẫn file tài liệu
             parent_widget=self # Truyền parent_widget để show_toast nếu cần
         )
 
         if api_response: # Kiểm tra nếu gọi API thành công (không bị lỗi)
-            bot_reply_text, ai_sender = api_response
+            bot_reply_text, ai_sender = api_response          
         else: # Xử lý lỗi nếu call_ai_api trả về None
             bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)." # Thông báo lỗi chung
             ai_sender = "system"
 
         # === Lưu tin nhắn người dùng vào database (giữ nguyên) ===
         db = next(get_db())
-        db = next(get_db())
         db_user_message = create_message_controller(
             db,
             session_id,
             "user",
             self.input_field.toPlainText().strip(), # Use user_message_text
-            images_path=json.dumps(image_file_paths), # Lưu list đường dẫn ảnh
-            files_path=json.dumps(document_file_paths) # Lưu list đường dẫn file
+            images_path=json.dumps(self.image_file_paths), # Lưu list đường dẫn ảnh
+            files_path=json.dumps(self.document_file_paths) # Lưu list đường dẫn file
         )
-        db.close()
+        self.image_file_paths = [] # Clear image paths
+        self.document_file_paths = [] # Clear document paths
         db.close()
 
         # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===

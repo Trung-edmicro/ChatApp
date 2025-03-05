@@ -244,7 +244,6 @@ def write_sessions_to_json_file(db: Session, filepath: str = "sessions_data.json
         print(f"Error writing sessions data to JSON file: {e}") # Print error message
         return False # Indicate failure
     
-
 def create_prompt_controller(db: Session, name: str, content: str):
     """Tạo mới một Prompt trong database."""
     db_prompt = Prompt(
