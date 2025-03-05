@@ -42,110 +42,178 @@ class AttachedFileItem(QWidget):
     
     def __init__(self, attached_file):
         super().__init__()
-        self.attached_file = attached_file # Lưu trữ đối tượng AttachedFile (quan trọng)
-        self.filename = attached_file.filename # Lấy filename từ object
-        self.file_type = attached_file.file_type # Lấy file_type từ object
+        self.attached_file = attached_file  # Lưu trữ đối tượng AttachedFile
+        self.filename = attached_file.filename  # Lấy filename từ object
+        self.file_type = attached_file.file_type  # Lấy file_type từ object
+        self.filepath = attached_file.filepath  # Lấy filepath để load ảnh
 
+        # Layout chính cho toàn bộ item
         self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(5, 5, 5, 5)
-        self.layout.setSpacing(8)
+        self.layout.setContentsMargins(5, 5, 5, 5)  # Margin nhỏ để sát viền
+        self.layout.setSpacing(8)  # Khoảng cách giữa các thành phần
 
-        # Icon based on file type
-        icon_label = QLabel()
         if self.file_type == "image":
-            icon_label.setPixmap(QPixmap("views/images/image_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        elif self.file_type == "document":
-            icon_label.setPixmap(QPixmap("views/images/document_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # Đối với ảnh: Hiển thị thumbnail
+            self.thumbnail_label = QLabel()
+            pixmap = QPixmap(self.filepath)
+            if not pixmap.isNull():
+                pixmap = pixmap.scaled(50, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.thumbnail_label.setPixmap(pixmap)
+            else:
+                self.thumbnail_label.setPixmap(QPixmap("views/images/image_icon.png").scaled(50, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.thumbnail_label.setFixedSize(50, 50)
+            self.layout.addWidget(self.thumbnail_label)
+
+            # Nút X ở góc trên bên phải ảnh
+            self.delete_button = QPushButton(self.thumbnail_label)  # Đặt nút làm con của thumbnail_label
+            self.delete_button.setIcon(QIcon("views/images/close_icon.png"))
+            self.delete_button.setCursor(QCursor(Qt.PointingHandCursor))
+            self.delete_button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(0, 0, 0, 0.5);  /* Nền mờ để nổi bật trên ảnh */
+                    border: none;
+                    border-radius: 8px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(85, 85, 85, 0.8);
+                }
+            """)
+            self.delete_button.setFixedSize(16, 16)
+            self.delete_button.move(34, 0)  # Đặt ở góc trên bên phải của thumbnail (50-16=34)
+            self.delete_button.clicked.connect(self.emit_remove_signal)
+
+            # Style cho khối ảnh
+            self.setStyleSheet("""
+                AttachedFileItem {
+                    background-color: #404040;  /* Màu sáng hơn */
+                    border: 2px solid #555555;  /* Border rõ ràng */
+                    border-radius: 8px;
+                }
+                AttachedFileItem:hover {
+                    background-color: #4a4a4a;  /* Hover sáng hơn */
+                }
+            """)
+            self.setFixedSize(54, 54)  # Kích thước cố định cho thumbnail + border
         else:
-            icon_label.setPixmap(QPixmap("views/images/file_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)) # Default file icon
-        self.layout.addWidget(icon_label)
+            # Đối với tài liệu: Hiển thị icon và tên
+            icon_label = QLabel()
+            if self.file_type == "document":
+                icon_label.setPixmap(QPixmap("views/images/document_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            else:
+                icon_label.setPixmap(QPixmap("views/images/file_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.layout.addWidget(icon_label)
 
-        # Filename label
-        filename_label = QLabel(self.filename)
-        filename_label.setStyleSheet("color: white; font-size: 12px;")
-        filename_label.setToolTip(self.filename) # Show full filename on hover
-        self.layout.addWidget(filename_label)
+            # Tên file: Cắt ngắn nếu dài quá 10 ký tự
+            display_name = self.filename if len(self.filename) <= 20 else self.filename[:20] + "..."
+            filename_label = QLabel(display_name)
+            filename_label.setStyleSheet("color: white; font-size: 12px;")
+            filename_label.setToolTip(self.filename)  # Tooltip hiển thị tên đầy đủ
+            self.layout.addWidget(filename_label)
 
-        # Delete button
-        delete_button = QPushButton()
-        delete_button.setIcon(QIcon("views/images/close_icon.png")) # Sử dụng icon close (X) của bạn
-        delete_button.setCursor(QCursor(Qt.PointingHandCursor))
-        delete_button.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: #555555; /* Hiệu ứng hover tùy chọn */
-                border-radius: 6px;
-            }
-        """)
-        delete_button.setFixedSize(16, 16)
-        delete_button.clicked.connect(self.emit_remove_signal) # Kết nối với hàm emit_remove_signal
-        self.layout.addWidget(delete_button)
+            # Nút xóa
+            delete_button = QPushButton()
+            delete_button.setIcon(QIcon("views/images/close_icon.png"))
+            delete_button.setCursor(QCursor(Qt.PointingHandCursor))
+            delete_button.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    border: none;
+                }
+                QPushButton:hover {
+                    background-color: #555555;
+                    border-radius: 6px;
+                }
+            """)
+            delete_button.setFixedSize(16, 16)
+            delete_button.clicked.connect(self.emit_remove_signal)
+            self.layout.addWidget(delete_button)
 
-        self.setStyleSheet("background-color: #333333; border-radius: 6px;") # Style for each file item
+            # Style cho khối tài liệu
+            self.setStyleSheet("""
+                AttachedFileItem {
+                    background-color: #404040;  /* Màu sáng hơn */
+                    border: 2px solid #555555;  /* Border rõ ràng */
+                    border-radius: 8px;
+                }
+                AttachedFileItem:hover {
+                    background-color: #4a4a4a;  /* Hover sáng hơn */
+                }
+            """)
+            self.setFixedHeight(50)  # Chiều cao cố định cho tài liệu
 
     def emit_remove_signal(self):
         """Emit signal when delete button is clicked, passing the AttachedFile object."""
-        self.file_removed_signal.emit(self.attached_file) # Phát tín hiệu object AttachedFile
+        self.file_removed_signal.emit(self.attached_file)
 
 class AttachedFilesWidget(QWidget):
     def __init__(self, parent_chat_app):
         super().__init__()
-        self.parent_chat_app = parent_chat_app # Lưu instance ChatApp
+        self.parent_chat_app = parent_chat_app  # Lưu instance ChatApp
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(10)
+        self.layout.setSpacing(8)  # Giảm spacing giữa các item
 
         self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True) # Allow inner widget to resize with scroll area
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded) # Show horizontal scrollbar only when needed
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff) # Hide vertical scrollbar
-        self.scroll_area.setStyleSheet("background-color: transparent; border: none;") # Style scroll area
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setStyleSheet("""
+            QScrollArea {
+                background-color: transparent;
+                border: none;
+            }
+            QScrollBar:horizontal {
+                height: 6px;  /* Thanh cuộn mỏng hơn */
+                background: #2a2a2a;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #555555;
+                min-width: 20px;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: #777777;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;  /* Ẩn nút tăng/giảm */
+            }
+        """)
+        QScroller.grabGesture(self.scroll_area.viewport(), QScroller.LeftMouseButtonGesture)  # Trượt mượt hơn
 
-        self.scroll_content_widget = QWidget() # Inner widget for scrollable content
-        self.scroll_layout = QHBoxLayout(self.scroll_content_widget) # Layout for file items inside scrollable area
+        self.scroll_content_widget = QWidget()
+        self.scroll_layout = QHBoxLayout(self.scroll_content_widget)
         self.scroll_layout.setContentsMargins(5, 5, 5, 5)
-        self.scroll_layout.setSpacing(10)
-        self.scroll_layout.addStretch() # Add stretch to the end to push items to the left
+        self.scroll_layout.setSpacing(8)
+        self.scroll_layout.setAlignment(Qt.AlignLeft)
 
-        self.scroll_area.setWidget(self.scroll_content_widget) # Set inner widget to scroll area
+        self.scroll_area.setWidget(self.scroll_content_widget)
         self.layout.addWidget(self.scroll_area)
 
-        self.setStyleSheet("background-color: transparent;") # Style container widget
+        self.setStyleSheet("background-color: transparent;")
+        self.setFixedHeight(60)  # Điều chỉnh chiều cao phù hợp với thumbnail
 
-    def add_file_item(self, attached_file): # Nhận trực tiếp đối tượng AttachedFile
-        file_item = AttachedFileItem(attached_file) # Truyền trực tiếp đối tượng AttachedFile
+    def add_file_item(self, attached_file):
+        file_item = AttachedFileItem(attached_file)
         file_item.file_removed_signal.connect(self.remove_file_item)
-        self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, file_item)
+        self.scroll_layout.addWidget(file_item)
 
-    def remove_file_item(self, attached_file_to_remove): # Nhận trực tiếp đối tượng AttachedFile cần xóa
-        """Remove file item from widget and ChatApp's file lists, using upload_id."""
+    def remove_file_item(self, attached_file_to_remove):
         for i in reversed(range(self.scroll_layout.count())):
             item = self.scroll_layout.itemAt(i)
             if item and item.widget() and isinstance(item.widget(), AttachedFileItem):
                 attached_file_widget = item.widget()
-                if attached_file_widget.attached_file == attached_file_to_remove: # So sánh trực tiếp đối tượng AttachedFile (dựa trên __eq__)
-
-                    # Remove from layout (giữ nguyên)
+                if attached_file_widget.attached_file == attached_file_to_remove:
                     self.scroll_layout.removeItem(item)
                     item.widget().deleteLater()
-
-                    # Remove AttachedFile object from ChatApp's file lists (dựa trên upload_id)
                     if attached_file_to_remove.file_type == "image":
                         self.parent_chat_app.image_files = [
-                            af 
-                            for af in self.parent_chat_app.image_files 
-                            if af != attached_file_to_remove # Lọc danh sách, giữ lại các object KHÁC object cần xóa (dựa trên __eq__)
+                            af for af in self.parent_chat_app.image_files if af != attached_file_to_remove
                         ]
                     elif attached_file_to_remove.file_type == "document":
                         self.parent_chat_app.document_files = [
-                            af
-                            for af in self.parent_chat_app.document_files
-                            if af != attached_file_to_remove # Lọc danh sách, giữ lại các object KHÁC object cần xóa (dựa trên __eq__)
+                            af for af in self.parent_chat_app.document_files if af != attached_file_to_remove
                         ]
-
                     self.parent_chat_app.update_attached_files_display()
                     break  
 
@@ -153,8 +221,7 @@ class AttachedFilesWidget(QWidget):
         for i in reversed(range(self.scroll_layout.count())):
             item = self.scroll_layout.itemAt(i)
             if item and item.widget():
-                item.widget().deleteLater()
-        self.scroll_layout.addStretch()
+                item.widget().deleteLater()        
 
 class ApiThread(QThread):
     finished = pyqtSignal(object)  # Tín hiệu gửi kết quả API về GUI
@@ -460,7 +527,7 @@ class ChatApp(QWidget):
         # Layout Danh sách lịch sử chat
         history_layout = QVBoxLayout()
 
-            # New session button
+        # New session button
         self.button_create_new = QPushButton("Tạo mới", self)
         self.button_create_new.setStyleSheet(f"""
             QPushButton {{
@@ -591,7 +658,10 @@ class ChatApp(QWidget):
         input_layout.setSpacing(5)
 
         # === Attached files widget ===
-        input_layout.addWidget(self.attached_files_widget) # Add attached files widget HERE
+        self.attached_files_widget = AttachedFilesWidget(self)
+        self.attached_files_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred) # hoặc Expanding, Preferred
+        self.attached_files_widget.setFixedHeight(100)
+        input_layout.addWidget(self.attached_files_widget, 0) # Căn trái widget trong input_layout (ĐẢM BẢO CÓ Qt.AlignLeft)
 
         # === Widget hiển thị prompt đính kèm ===
         self.attached_prompt_widget = QWidget()
@@ -1214,6 +1284,9 @@ class ChatApp(QWidget):
             print("Không có session nào trong Database.")
 
     def load_selected_chat(self, item):
+        self.attached_files_widget.clear_files()
+        self.image_files = [] # Danh sách AttachedFile cho ảnh
+        self.document_files = [] # Danh sách AttachedFile cho tài liệu
         """Load danh sách messages của session đã chọn, LƯU SUMMARY session trước đó, và LOAD SUMMARY session hiện tại."""
         # === Lưu summary của session HIỆN TẠI (session cũ) ===
         if self.current_session_id: # Kiểm tra nếu có session cũ (không phải lần load session đầu tiên)
@@ -1263,6 +1336,9 @@ class ChatApp(QWidget):
 
     def create_new_session(self):
         """Tạo một phiên chat mới."""
+        self.attached_files_widget.clear_files()
+        self.image_files = [] # Danh sách AttachedFile cho ảnh
+        self.document_files = [] # Danh sách AttachedFile cho tài liệu
         # === Lưu summary của session hiện tại (nếu có) ===
         self.save_current_session_summary() # Gọi hàm save summary trước khi tạo session mới
         # === Xóa history Gemini trước khi tạo session mới ===
@@ -1451,11 +1527,12 @@ class ChatApp(QWidget):
             self.gemini_chat,
             self.openai_client,
             self.gemini_chat.history, # Truyền history hiện tại của gemini_chat
-            self.image_file_paths,
-            self.document_file_paths,
+            self.image_files,
+            self.document_files,
             session_id,
             self
         )
+        self.attached_files_widget.clear_files()
         self.api_thread.finished.connect(self.handle_api_response)
         self.api_thread.start()
 
@@ -1476,8 +1553,33 @@ class ChatApp(QWidget):
             ai_sender = "system"
 
         db = next(get_db())
-        db_user_message = create_message_controller(db, session_id, "user", self.input_field.toPlainText().strip(), json.dumps(self.image_file_paths), json.dumps(self.document_file_paths))
+        image_files_for_db = [
+            {
+                "filepath": attached_file.filepath,
+                "filename": attached_file.filename,
+                "file_type": attached_file.file_type
+            }
+            for attached_file in self.image_files
+        ]
+        document_files_for_db = [
+            {
+                "filepath": attached_file.filepath,
+                "filename": attached_file.filename,
+                "file_type": attached_file.file_type
+            }
+            for attached_file in self.document_files
+        ]
+        db_user_message = create_message_controller(
+            db,
+            session_id,
+            "user",
+            self.input_field.toPlainText().strip(),
+            json.dumps(image_files_for_db), # Serialize danh sách dictionaries, KHÔNG phải danh sách objects
+            json.dumps(document_files_for_db) # Serialize danh sách dictionaries, KHÔNG phải danh sách objects
+        )
         db.close()
+        self.image_files = [] # Danh sách AttachedFile cho ảnh
+        self.document_files = [] # Danh sách AttachedFile cho tài liệu
 
         # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===
         user_item = QListWidgetItem()
@@ -1512,6 +1614,9 @@ class ChatApp(QWidget):
     def create_new_session_and_get_id(self):
         """Tạo một session mới và trả về session_id của session vừa tạo.
         Trả về None nếu tạo session không thành công."""
+        self.attached_files_widget.clear_files()
+        self.image_files = [] # Danh sách AttachedFile cho ảnh
+        self.document_files = [] # Danh sách AttachedFile cho tài liệu
         db = next(get_db())
         session_name = f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}"
         ai_model = "gpt" if self.is_toggle_on else "gemini"

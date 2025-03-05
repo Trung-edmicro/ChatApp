@@ -56,7 +56,7 @@ def call_ai_api(user_message_text, is_toggle_on, gemini_chat, openai_client, his
             if image_files:
                 for image_file in image_files:
                     try:
-                        image = Image.open(image_file) # Mở ảnh bằng Pillow
+                        image = Image.open(image_file.filepath) # Mở ảnh bằng Pillow
                         contents.append(image) # Thêm trực tiếp object Image vào contents
                         print(f"Đã thêm image file (Pillow): {image_file}") # Log
                     except FileNotFoundError:
@@ -71,8 +71,8 @@ def call_ai_api(user_message_text, is_toggle_on, gemini_chat, openai_client, his
                 for doc_file in document_files:
                     doc_text = ""
                     try:
-                        if doc_file.lower().endswith(".docx"):
-                            doc = docx.Document(doc_file)
+                        if doc_file.filepath.lower().endswith(".docx"):
+                            doc = docx.Document(doc_file.filepath)
                             for paragraph in doc.paragraphs:
                                 doc_text += paragraph.text + "\n" # Đọc text từ từng paragraph trong docx
                         elif doc_file.lower().endswith(".pdf"):
