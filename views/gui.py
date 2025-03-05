@@ -9,7 +9,7 @@ from datetime import datetime
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QApplication, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QLineEdit, QGraphicsOpacityEffect , QPushButton, QInputDialog, QListWidget, QListWidgetItem, QLabel, QSizePolicy, QAction, QMenu, QMessageBox, QDialog, QScroller
 from PyQt5.QtGui import QPalette, QColor, QIcon, QCursor, QFont, QPixmap, QFontMetrics, QClipboard, QMovie
-from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint, QThread
+from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, pyqtSignal, QSize, QTimer, QEasingCurve, QPoint, QThread, QEvent
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from internal.db.connection import get_db
 from controllers.controllers import *
@@ -487,6 +487,7 @@ class ChatApp(QWidget):
 
             # input
         self.input_field = QTextEdit(self)
+        self.input_field.setAttribute(Qt.WA_InputMethodEnabled, True)
         self.input_field.setPlaceholderText("Nhập nội dung...")
         self.input_field.setStyleSheet(
             f"border: none; background-color: {styles.BACKGROUND_COLOR_INPUT}; color: {styles.TEXT_COLOR}; padding: 8px;"
@@ -495,6 +496,7 @@ class ChatApp(QWidget):
         self.input_field.setFixedHeight(styles.INPUT_FIELD_HEIGHT)
         self.input_field.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         # self.input_field.textChanged.connect(self.adjust_input_height)
+        self.input_field.installEventFilter(self)
         input_container.addWidget(self.input_field, 1)
 
         # Layout button
@@ -1233,6 +1235,17 @@ class ChatApp(QWidget):
     def update_toggle_state(self, state):
         self.is_toggle_on = state
 
+    def eventFilter(self, obj, event):
+        if obj == self.input_field and event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_Return:
+                if event.modifiers() == Qt.NoModifier:  # ✅ Nhấn Enter để gửi
+                    self.send_message()
+                    return True
+                elif event.modifiers() == Qt.ShiftModifier:  # ✅ Shift + Enter để xuống dòng
+                    self.input_field.insertPlainText("\n")
+                    return True
+        return super().eventFilter(obj, event)
+    
     def send_message(self):
         user_message_text = ""
         if self.attached_prompt_content: # Nếu có prompt đính kèm
@@ -1279,6 +1292,7 @@ class ChatApp(QWidget):
         self.send_button.hide()
         self.loading_label.movie().start()
         self.loading_label.show()
+        self.input_field.setEnabled(False)
 
         # Chạy API trong luồng riêng
         self.api_thread = ApiThread(
@@ -1294,66 +1308,6 @@ class ChatApp(QWidget):
         self.api_thread.finished.connect(self.handle_api_response)
         self.api_thread.start()
 
-        # api_response = call_ai_api(
-        #     prompt_template, # user_message_text thay bằng prompt_template
-        #     self.is_toggle_on,
-        #     self.gemini_chat,
-        #     self.openai_client,
-        #     image_files=self.image_file_paths, # Truyền danh sách đường dẫn file ảnh
-        #     document_files=self.document_file_paths, # Truyền danh sách đường dẫn file tài liệu
-        #     parent_widget=self # Truyền parent_widget để show_toast nếu cần
-        # )
-
-        # if api_response: # Kiểm tra nếu gọi API thành công (không bị lỗi)
-        #     bot_reply_text, ai_sender = api_response          
-        # else: # Xử lý lỗi nếu call_ai_api trả về None
-        #     bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)." # Thông báo lỗi chung
-        #     ai_sender = "system"
-
-        # === Lưu tin nhắn người dùng vào database (giữ nguyên) ===
-        # db = next(get_db())
-        # db_user_message = create_message_controller(
-        #     db,
-        #     session_id,
-        #     "user",
-        #     self.input_field.toPlainText().strip(), # Use user_message_text
-        #     images_path=json.dumps(self.image_file_paths), # Lưu list đường dẫn ảnh
-        #     files_path=json.dumps(self.document_file_paths) # Lưu list đường dẫn file
-        # )
-        # self.image_file_paths = [] # Clear image paths
-        # self.document_file_paths = [] # Clear document paths
-        # db.close()
-
-        # # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===
-        # user_item = QListWidgetItem()
-        # user_widget = ChatItem(db_user_message.message_id, db_user_message.content, sender="user", chat_app=self)
-        # user_item.setSizeHint(user_widget.sizeHint())
-        # self.chat_display.addItem(user_item)
-        # self.chat_display.setItemWidget(user_item, user_widget)
-        # self.input_field.clear()
-
-        # self.input_field.setEnabled(False)
-        # self.send_button.setEnabled(False)
-
-        # # === Lưu phản hồi AI vào database (giữ nguyên) ===
-        # db = next(get_db())
-        # db_bot_message = create_message_controller(db, session_id, ai_sender, bot_reply_text, "", "")
-        # db.close()
-
-        # # === Hiển thị phản hồi AI lên GUI (giữ nguyên) ===
-        # bot_item = QListWidgetItem()
-        # bot_widget = ChatItem(db_bot_message.message_id, db_bot_message.content, sender="system", chat_app=self)
-        # bot_item.setSizeHint(bot_widget.sizeHint())
-        # self.chat_display.addItem(bot_item)
-        # self.chat_display.setItemWidget(bot_item, bot_widget)
-
-        # self.chat_display.scrollToBottom()
-
-        # # Kích hoạt lại input và nút send (giữ nguyên)
-        # self.input_field.setEnabled(True)
-        # self.send_button.setEnabled(True)
-        # self.input_field.setFocus() # Focus lại vào ô input
-        
     def handle_api_response(self, api_response):
         session_id = self.api_thread.session_id
 
