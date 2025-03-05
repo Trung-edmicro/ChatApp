@@ -22,13 +22,29 @@ from views.utils.helpers import show_toast
 from views.utils.contains import format_message, contains_latex
 from views.utils.config import set_api_keys
 
-
-class AttachedFileItem(QWidget):
-    file_removed_signal = pyqtSignal(str, str)
-    def __init__(self, filename, file_type):
-        super().__init__()
+class AttachedFile:
+    def __init__(self, filepath, filename, file_type):
+        self.filepath = filepath
         self.filename = filename
         self.file_type = file_type
+        self.upload_id = uuid.uuid4() # Tạo UUID duy nhất cho mỗi instance
+
+    def __eq__(self, other): # Định nghĩa phép so sánh bằng (==)
+        if isinstance(other, AttachedFile):
+            return self.upload_id == other.upload_id # So sánh bằng dựa trên upload_id
+        return False
+
+    def __hash__(self): # Để có thể dùng làm key trong set hoặc dict
+        return hash(self.upload_id)
+
+class AttachedFileItem(QWidget):
+    file_removed_signal = pyqtSignal(object)
+    
+    def __init__(self, attached_file):
+        super().__init__()
+        self.attached_file = attached_file # Lưu trữ đối tượng AttachedFile (quan trọng)
+        self.filename = attached_file.filename # Lấy filename từ object
+        self.file_type = attached_file.file_type # Lấy file_type từ object
 
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(5, 5, 5, 5)
@@ -36,18 +52,18 @@ class AttachedFileItem(QWidget):
 
         # Icon based on file type
         icon_label = QLabel()
-        if file_type == "image":
+        if self.file_type == "image":
             icon_label.setPixmap(QPixmap("views/images/image_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        elif file_type == "document":
+        elif self.file_type == "document":
             icon_label.setPixmap(QPixmap("views/images/document_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
             icon_label.setPixmap(QPixmap("views/images/file_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)) # Default file icon
         self.layout.addWidget(icon_label)
 
         # Filename label
-        filename_label = QLabel(filename)
+        filename_label = QLabel(self.filename)
         filename_label.setStyleSheet("color: white; font-size: 12px;")
-        filename_label.setToolTip(filename) # Show full filename on hover
+        filename_label.setToolTip(self.filename) # Show full filename on hover
         self.layout.addWidget(filename_label)
 
         # Delete button
@@ -71,8 +87,8 @@ class AttachedFileItem(QWidget):
         self.setStyleSheet("background-color: #333333; border-radius: 6px;") # Style for each file item
 
     def emit_remove_signal(self):
-        """Emit signal when delete button is clicked, passing filename and file_type."""
-        self.file_removed_signal.emit(self.filename, self.file_type)
+        """Emit signal when delete button is clicked, passing the AttachedFile object."""
+        self.file_removed_signal.emit(self.attached_file) # Phát tín hiệu object AttachedFile
 
 class AttachedFilesWidget(QWidget):
     def __init__(self, parent_chat_app):
@@ -99,32 +115,39 @@ class AttachedFilesWidget(QWidget):
 
         self.setStyleSheet("background-color: transparent;") # Style container widget
 
-    def add_file_item(self, filename, file_type):
-        file_item = AttachedFileItem(filename, file_type)
-        file_item.file_removed_signal.connect(self.remove_file_item) # Đúng # Kết nối tín hiệu ở đây
+    def add_file_item(self, attached_file): # Nhận trực tiếp đối tượng AttachedFile
+        file_item = AttachedFileItem(attached_file) # Truyền trực tiếp đối tượng AttachedFile
+        file_item.file_removed_signal.connect(self.remove_file_item)
         self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, file_item)
 
-    def remove_file_item(self, filename, file_type):
-        """Remove file item from widget and ChatApp's file lists."""
+    def remove_file_item(self, attached_file_to_remove): # Nhận trực tiếp đối tượng AttachedFile cần xóa
+        """Remove file item from widget and ChatApp's file lists, using upload_id."""
         for i in reversed(range(self.scroll_layout.count())):
             item = self.scroll_layout.itemAt(i)
             if item and item.widget() and isinstance(item.widget(), AttachedFileItem):
                 attached_file_widget = item.widget()
-                if attached_file_widget.filename == filename and attached_file_widget.file_type == file_type:
-                    # Remove from layout
+                if attached_file_widget.attached_file == attached_file_to_remove: # So sánh trực tiếp đối tượng AttachedFile (dựa trên __eq__)
+
+                    # Remove from layout (giữ nguyên)
                     self.scroll_layout.removeItem(item)
-                    item.widget().deleteLater() # Clean up widget
+                    item.widget().deleteLater()
 
-                    # Remove from ChatApp's file lists
-                    if file_type == "image":
-                        if filename in [os.path.basename(path) for path in self.parent_chat_app.image_file_paths]:
-                            self.parent_chat_app.image_file_paths = [path for path in self.parent_chat_app.image_file_paths if os.path.basename(path) != filename]
-                    elif file_type == "document":
-                        if filename in [os.path.basename(path) for path in self.parent_chat_app.document_file_paths]:
-                            self.parent_chat_app.document_file_paths = [path for path in self.parent_chat_app.document_file_paths if os.path.basename(path) != filename]
+                    # Remove AttachedFile object from ChatApp's file lists (dựa trên upload_id)
+                    if attached_file_to_remove.file_type == "image":
+                        self.parent_chat_app.image_files = [
+                            af 
+                            for af in self.parent_chat_app.image_files 
+                            if af != attached_file_to_remove # Lọc danh sách, giữ lại các object KHÁC object cần xóa (dựa trên __eq__)
+                        ]
+                    elif attached_file_to_remove.file_type == "document":
+                        self.parent_chat_app.document_files = [
+                            af
+                            for af in self.parent_chat_app.document_files
+                            if af != attached_file_to_remove # Lọc danh sách, giữ lại các object KHÁC object cần xóa (dựa trên __eq__)
+                        ]
 
-                    self.parent_chat_app.update_attached_files_display() # Cập nhật hiển thị
-                    break # Thoát vòng lặp sau khi tìm và xóa    
+                    self.parent_chat_app.update_attached_files_display()
+                    break  
 
     def clear_files(self):
         for i in reversed(range(self.scroll_layout.count())):
@@ -421,9 +444,9 @@ class ChatApp(QWidget):
 
         self.list_messages_widget.setMaximumWidth(250)
 
-        # Lists to store file paths
-        self.image_file_paths = []
-        self.document_file_paths = []
+        # Lists to store AttachedFile objects (instead of file paths)
+        self.image_files = [] # Danh sách AttachedFile cho ảnh
+        self.document_files = [] # Danh sách AttachedFile cho tài liệu
     
     def initUI(self):
         app_font = QFont("Inter", 12)
@@ -856,46 +879,38 @@ class ChatApp(QWidget):
     def upload_file(self):
         """Xử lý hành động "Upload File"."""
         file_dialog = QFileDialog()
-        file_dialog.setNameFilter("Documents (*.docx *.pdf)") # Show all files filter
-        file_dialog.setFileMode(QFileDialog.ExistingFiles) # Allow selecting multiple files
+        file_dialog.setNameFilter("Documents (*.docx *.pdf)")
+        file_dialog.setFileMode(QFileDialog.ExistingFiles)
         if file_dialog.exec_():
             selected_files = file_dialog.selectedFiles()
             if selected_files:
-                self.document_file_paths.extend(selected_files) # Add selected files to document_file_paths
-                self.update_attached_files_display() # Update display
-                print(f"Tải lên Files: {self.document_file_paths}") # Log uploaded document files
+                for filepath in selected_files: # Duyệt qua từng file đã chọn
+                    filename = os.path.basename(filepath)
+                    attached_file = AttachedFile(filepath, filename, "document") # Tạo đối tượng AttachedFile
+                    self.document_files.append(attached_file) # Thêm đối tượng AttachedFile vào list
+                self.update_attached_files_display()
 
     def sample_media(self):
         """Xử lý hành động "Sample Media"."""
         file_dialog = QFileDialog()
-        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg)") # Filter for images and videos
-        file_dialog.setFileMode(QFileDialog.ExistingFiles) # Allow selecting multiple files
+        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg)")
+        file_dialog.setFileMode(QFileDialog.ExistingFiles)
         if file_dialog.exec_():
             selected_files = file_dialog.selectedFiles()
             if selected_files:
-                self.image_file_paths.extend(selected_files) # Add selected files to image_file_paths
-                self.update_attached_files_display() # Update display
-                print(f"Chọn Sample Media: {self.image_file_paths}") # Log uploaded image files
+                for filepath in selected_files: # Duyệt qua từng file đã chọn
+                    filename = os.path.basename(filepath)
+                    attached_file = AttachedFile(filepath, filename, "image") # Tạo đối tượng AttachedFile
+                    self.image_files.append(attached_file) # Thêm đối tượng AttachedFile vào list
+                self.update_attached_files_display()
 
     def update_attached_files_display(self):
         """Cập nhật hiển thị các file đính kèm."""
-        self.attached_files_widget.clear_files() # Clear existing display
-        for file_path in self.image_file_paths:
-            filename = os.path.basename(file_path)
-            self.attached_files_widget.add_file_item(filename, "image")
-        for file_path in self.document_file_paths:
-            filename = os.path.basename(file_path)
-            self.attached_files_widget.add_file_item(filename, "document")
-
-    def update_attached_files_display(self):
-        """Cập nhật hiển thị các file đính kèm."""
-        self.attached_files_widget.clear_files() # Clear existing display
-        for file_path in self.image_file_paths:
-            filename = os.path.basename(file_path)
-            self.attached_files_widget.add_file_item(filename, "image")
-        for file_path in self.document_file_paths:
-            filename = os.path.basename(file_path)
-            self.attached_files_widget.add_file_item(filename, "document")
+        self.attached_files_widget.clear_files()
+        for attached_file in self.image_files: # Duyệt qua danh sách AttachedFile objects
+            self.attached_files_widget.add_file_item(attached_file) # Truyền trực tiếp đối tượng AttachedFile
+        for attached_file in self.document_files: # Duyệt qua danh sách AttachedFile objects
+            self.attached_files_widget.add_file_item(attached_file) # Truyền trực tiếp đối tượng AttachedFile
 
     def open_prompt_dialog(self):
         # """Mở dialog quản lý prompts và làm mờ cửa sổ chính."""
