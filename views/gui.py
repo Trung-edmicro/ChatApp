@@ -637,6 +637,8 @@ class ChatApp(QWidget):
     def show_attachment_menu(self):
         """Hiển thị menu attachment khi nút attachment được click."""
         menu = QMenu(self)
+        menu.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        menu.setAttribute(Qt.WA_TranslucentBackground)
         menu.setStyleSheet("""
             QMenu {
                 background-color: #2a2a2a;
@@ -655,11 +657,6 @@ class ChatApp(QWidget):
             }
         """)
 
-        # Hành động "Select Prompt"
-        select_prompt_action = QAction(QIcon("views/images/prompt_icon.png"), "Select Prompt", self) # Cần icon upload_icon.png
-        select_prompt_action.triggered.connect(self.open_prompt_dialog) # Kết nối với hàm open_prompt_dialog
-        menu.addAction(select_prompt_action)
-
         # Hành động "Upload File"
         upload_file_action = QAction(QIcon("views/images/upload_icon.png"), "Upload File", self) # Cần icon upload_icon.png
         upload_file_action.triggered.connect(self.upload_file)
@@ -670,8 +667,21 @@ class ChatApp(QWidget):
         sample_media_action.triggered.connect(self.sample_media)
         menu.addAction(sample_media_action)
 
-        # Hiển thị menu ngay dưới nút attachment
-        menu.exec_(self.attachment_button.mapToGlobal(self.attachment_button.rect().bottomRight()))
+        # Hành động "Select Prompt"
+        select_prompt_action = QAction(QIcon("views/images/prompt_icon.png"), "Select Prompt", self) # Cần icon upload_icon.png
+        select_prompt_action.triggered.connect(self.open_prompt_dialog) # Kết nối với hàm open_prompt_dialog
+        menu.addAction(select_prompt_action)
+
+        # Hiển thị menu ngay phía TRÊN nút attachment, canh trái và dịch lên thêm
+        button_top_left = self.attachment_button.rect().topLeft()
+        menu_top_left_global = self.attachment_button.mapToGlobal(button_top_left)
+
+        # Adjust the y-coordinate to position menu further above the button
+        extra_vertical_offset = 110 # Thêm offset dọc, giá trị này có thể điều chỉnh
+        extra_horizontal_offset = 200 # Thêm offset ngang, giá trị này có thể điều chỉnh
+        adjusted_menu_pos = QPoint(menu_top_left_global.x(), menu_top_left_global.y() - menu.height() - extra_vertical_offset)
+
+        menu.exec_(adjusted_menu_pos)
 
     def upload_file(self):
         """Xử lý hành động "Upload File"."""
