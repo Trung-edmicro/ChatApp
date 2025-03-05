@@ -330,6 +330,10 @@ class PromptDialog(QDialog):
                 if isinstance(item_data, dict) and item_data.get('prompt_id') == prompt_to_select_id:
                     self.prompts_list_widget.setCurrentItem(item) # Chọn item
                     break # Thoát vòng lặp sau khi tìm thấy và chọn
+            self.delete_button_ui.setText("Xóa") # Đổi text trở lại thành "Xóa"
+            self.delete_button_ui.disconnect() # Ngắt kết nối signal "Hủy"
+            self.delete_button_ui.setEnabled(True) # Enable nút "Xóa"
+            self.delete_button_ui.clicked.connect(self.delete_prompt_button_clicked) # Kết nối lại với hàm "Xóa"       
 
     def reject(self):
         self.clear_prompt_detail()
