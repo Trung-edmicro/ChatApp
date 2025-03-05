@@ -409,23 +409,24 @@ class ChatApp(QWidget):
                 outline: none;
             }}
         """)
-        scroll_bar = self.chat_display.verticalScrollBar()
         self.chat_display.verticalScrollBar().setSingleStep(50)
+        scroll_bar = self.chat_display.verticalScrollBar()
         scroll_bar.setStyleSheet(styles.SCROLLBAR_STYLES)
         chat_layout.addWidget(self.chat_display)
         
             # Layout input
-        input_container = QVBoxLayout()
-        input_container.setContentsMargins(10, 10, 10, 10)
-        input_container.setSpacing(5)
+        input_layout = QVBoxLayout()
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(5)
 
         # === Widget hiển thị prompt đính kèm ===
         self.attached_prompt_widget = QWidget()
         self.attached_prompt_layout = QHBoxLayout()
         self.attached_prompt_widget.setLayout(self.attached_prompt_layout)
-        self.attached_prompt_widget.setStyleSheet("background-color: #333333; border-radius: 5px; padding: 5px; margin-bottom: 5px;")
+        self.attached_prompt_widget.setStyleSheet("background-color: #333333; border-radius: 5px; padding: 5px; margin-bottom: 5px; max-height: 40px")
         self.attached_prompt_label = QLabel()
         self.attached_prompt_label.setStyleSheet("color: white;")
+
         self.attached_prompt_close_button = QPushButton("X")
         self.attached_prompt_close_button.setStyleSheet("""
             QPushButton {
@@ -441,22 +442,28 @@ class ChatApp(QWidget):
         """)
         self.attached_prompt_close_button.setFixedSize(20, 20)
         self.attached_prompt_close_button.clicked.connect(self.clear_attached_prompt) # Kết nối nút X
+
         self.attached_prompt_layout.addWidget(self.attached_prompt_label)
         self.attached_prompt_layout.addStretch()
         self.attached_prompt_layout.addWidget(self.attached_prompt_close_button)
         self.attached_prompt_widget.hide() # Ẩn widget prompt đính kèm ban đầu
-        input_container.addWidget(self.attached_prompt_widget) # Thêm widget prompt đính kèm vào input_container
-        
+
+        input_layout.addWidget(self.attached_prompt_widget) # Thêm widget prompt đính kèm vào input_container
+
+        input_container = QVBoxLayout()
+        input_container.setContentsMargins(10, 10, 10, 10)
+        input_container.setSpacing(5)
+
             # input
         self.input_field = QTextEdit(self)
         self.input_field.setPlaceholderText("Nhập nội dung...")
         self.input_field.setStyleSheet(
             f"border: none; background-color: {styles.BACKGROUND_COLOR_INPUT}; color: {styles.TEXT_COLOR}; padding: 8px;"
-            f"border-radius: {styles.BORDER_RADIUS}; font-size: {styles.FONT_SIZE}; max-height: 100px;"
+            f"border-radius: {styles.BORDER_RADIUS}; font-size: {styles.FONT_SIZE}; max-height: 180px;"
         )
         self.input_field.setFixedHeight(styles.INPUT_FIELD_HEIGHT)
         self.input_field.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.input_field.textChanged.connect(self.adjust_input_height)
+        # self.input_field.textChanged.connect(self.adjust_input_height)
         input_container.addWidget(self.input_field, 1)
 
         # Layout button
@@ -466,7 +473,7 @@ class ChatApp(QWidget):
 
         # Attachment button (THÊM ĐOẠN CODE NÀY)
         self.attachment_button = QPushButton(self)
-        self.attachment_button.setIcon(QIcon("views/images/attach_icon.png")) # Đặt icon dấu cộng. Cần chuẩn bị file ảnh attach_icon.png
+        self.attachment_button.setIcon(QIcon("views/images/attach_icon.png"))
         self.attachment_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.attachment_button.setStyleSheet(f"""
             QPushButton {{
@@ -531,9 +538,11 @@ class ChatApp(QWidget):
         input_container.addLayout(button_container)
 
         input_widget = QWidget()
-        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 14px; padding: 5px; min-height: 30px; max-height: 150px") # Tăng max-height
+        input_widget.setStyleSheet(f"background-color: {styles.BACKGROUND_COLOR_INPUT}; border-radius: 14px; padding: 5px; min-height: 30px; max-height: 150px")
         input_widget.setLayout(input_container)
-        chat_layout.addWidget(input_widget)
+
+        input_layout.addWidget(input_widget)
+        chat_layout.addLayout(input_layout)
 
         self.main_layout.addLayout(chat_layout)
         
@@ -583,7 +592,7 @@ class ChatApp(QWidget):
         # Layout chứa 2 nút
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
-        buttons_layout.setContentsMargins(0, 0, 0, 0)  
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
 
         # Nut xoa tat ca
         self.clear_button = QPushButton("Xóa tất cả")
@@ -1150,10 +1159,10 @@ class ChatApp(QWidget):
 
             db.close()
 
-    def adjust_input_height(self):
-        document_height = self.input_field.document().size().height()
-        new_height = min(100, max(styles.INPUT_FIELD_HEIGHT, int(document_height + 10)))
-        self.input_field.setFixedHeight(new_height)
+    # def adjust_input_height(self):
+    #     # document_height = self.input_field.document().size().height()
+    #     # new_height = min(100, max(styles.INPUT_FIELD_HEIGHT, int(document_height + 10)))
+    #     # self.input_field.setFixedHeight(new_height)
 
     def update_toggle_state(self, state):
         self.is_toggle_on = state
