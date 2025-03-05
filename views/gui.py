@@ -1,5 +1,6 @@
 import sys
 import re
+import os
 import json
 import uuid
 import openai
@@ -643,6 +644,7 @@ class ChatApp(QWidget):
         self.hidden_x = 0  # Initialize hidden_x
 
 # === Function ===
+
     def show_attachment_menu(self):
         """Hiển thị menu attachment khi nút attachment được click."""
         menu = QMenu(self)
@@ -687,7 +689,6 @@ class ChatApp(QWidget):
 
         # Adjust the y-coordinate to position menu further above the button
         extra_vertical_offset = 110 # Thêm offset dọc, giá trị này có thể điều chỉnh
-        extra_horizontal_offset = 200 # Thêm offset ngang, giá trị này có thể điều chỉnh
         adjusted_menu_pos = QPoint(menu_top_left_global.x(), menu_top_left_global.y() - menu.height() - extra_vertical_offset)
 
         menu.exec_(adjusted_menu_pos)
@@ -701,6 +702,7 @@ class ChatApp(QWidget):
             selected_files = file_dialog.selectedFiles()
             if selected_files:
                 self.document_file_paths.extend(selected_files) # Add selected files to document_file_paths
+                self.update_attached_files_display() # Update display
                 print(f"Tải lên Files: {self.document_file_paths}") # Log uploaded document files
 
     def sample_media(self):
@@ -712,6 +714,7 @@ class ChatApp(QWidget):
             selected_files = file_dialog.selectedFiles()
             if selected_files:
                 self.image_file_paths.extend(selected_files) # Add selected files to image_file_paths
+                self.update_attached_files_display() # Update display
                 print(f"Chọn Sample Media: {self.image_file_paths}") # Log uploaded image files
 
     def open_prompt_dialog(self):
@@ -1185,11 +1188,6 @@ class ChatApp(QWidget):
 
             db.close()
 
-    # def adjust_input_height(self):
-    #     # document_height = self.input_field.document().size().height()
-    #     # new_height = min(100, max(styles.INPUT_FIELD_HEIGHT, int(document_height + 10)))
-    #     # self.input_field.setFixedHeight(new_height)
-
     def update_toggle_state(self, state):
         self.is_toggle_on = state
 
@@ -1199,11 +1197,11 @@ class ChatApp(QWidget):
             # 1. Xử lý Prompt đính kèm: Thay placeholder trong prompt đính kèm bằng tin nhắn user
             user_message_text = self.attached_prompt_content.replace("{nội dung tin nhắn}", self.input_field.toPlainText().strip())
             print(user_message_text)
-        else:
+        else:    
             user_message_text = self.input_field.toPlainText().strip() # Use user_message_text consistently
         if not user_message_text:
             return
-        
+
         # === Lấy session_id của session đang hiển thị ===
         current_session_item = self.history_list.currentItem()
         # Kiểm tra nếu không có session nào được chọn
@@ -1220,11 +1218,10 @@ class ChatApp(QWidget):
             if new_session_item:
                 self.history_list.setCurrentItem(new_session_item) # Chọn session mới
                 print(f"Session mới (ID: {new_session_id}) đã được tạo và chọn.")
-                self.load_selected_chat(new_session_item) # Explicitly call load_selected_chat
             else:
                 print(f"Không tìm thấy session item cho ID: {new_session_id} sau khi tạo.")
                 return # Dừng lại nếu không tìm thấy item
-        current_session_item = self.history_list.currentItem() # Lấy lại current item sau khi có thể đã tạo mới
+        current_session_item = self.history_list.currentItem() # Lấy lại current item sau khi có thể đã tạo mới    
         session_id = current_session_item.data(Qt.UserRole)
 
         prompt_template = f"""Bạn là một Giáo viên thông minh. Hãy trả lời nội dung dưới đây một cách chi tiết và rõ ràng:
@@ -1232,39 +1229,32 @@ class ChatApp(QWidget):
         Kết quả trả về phải bao gồm quy chuẩn bắt buộc sau (đừng trả về các yêu cầu này trong phần trả về):
         - Luôn tách biệt nội dung và công thức toán cách nhau 1 dòng.
         - Các công thức phải trả về mã Latex với điều kiện:
-            + Sử dụng $...$ để bọc các công thức thay vì sử dụng \[...\] hay \(...\), không sử dụng \boxed trong công thức.
+            + Sử dụng $...$ để bọc các công thức thay vì sử dụng \\[...\\] hay \(...\), không sử dụng \boxed trong công thức.
             + Không được sử dụng \frac, thay vào đó sử dụng \dfrac
         """
 
-        # === Gọi API thông qua api_handler.py ===
+        # === Gọi API thông qua api_handler.py, truyền history và nhận history cập nhật ===
         api_response = call_ai_api(
             prompt_template, # user_message_text thay bằng prompt_template
             self.is_toggle_on,
             self.gemini_chat,
             self.openai_client,
+            history=self.gemini_chat.history, # Truyền history hiện tại của gemini_chat
             image_files=self.image_file_paths, # Truyền danh sách đường dẫn file ảnh
             document_files=self.document_file_paths, # Truyền danh sách đường dẫn file tài liệu
             parent_widget=self # Truyền parent_widget để show_toast nếu cần
         )
 
         if api_response: # Kiểm tra nếu gọi API thành công (không bị lỗi)
-            bot_reply_text, ai_sender = api_response          
+            bot_reply_text, ai_sender, updated_history = api_response # Nhận history cập nhật
+            self.gemini_chat = self.gemini_model.start_chat(history=updated_history) # Cập nhật history của gemini_chat
         else: # Xử lý lỗi nếu call_ai_api trả về None
             bot_reply_text = "Lỗi khi gọi AI API (chi tiết xem log console)." # Thông báo lỗi chung
             ai_sender = "system"
 
         # === Lưu tin nhắn người dùng vào database (giữ nguyên) ===
         db = next(get_db())
-        db_user_message = create_message_controller(
-            db,
-            session_id,
-            "user",
-            self.input_field.toPlainText().strip(), # Use user_message_text
-            images_path=json.dumps(self.image_file_paths), # Lưu list đường dẫn ảnh
-            files_path=json.dumps(self.document_file_paths) # Lưu list đường dẫn file
-        )
-        self.image_file_paths = [] # Clear image paths
-        self.document_file_paths = [] # Clear document paths
+        db_user_message = create_message_controller(db, session_id, "user", self.input_field.toPlainText().strip(), json.dumps(self.image_file_paths), json.dumps(self.document_file_paths))
         db.close()
 
         # === Hiển thị tin nhắn người dùng lên GUI (giữ nguyên) ===
