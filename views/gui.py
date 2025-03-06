@@ -42,18 +42,18 @@ class AttachedFileItem(QWidget):
     
     def __init__(self, attached_file):
         super().__init__()
-        self.attached_file = attached_file  # Lưu trữ đối tượng AttachedFile
-        self.filename = attached_file.filename  # Lấy filename từ object
-        self.file_type = attached_file.file_type  # Lấy file_type từ object
-        self.filepath = attached_file.filepath  # Lấy filepath để load ảnh
+        self.attached_file = attached_file
+        self.filename = attached_file.filename
+        self.file_type = attached_file.file_type
+        self.filepath = attached_file.filepath
 
         # Layout chính cho toàn bộ item
         self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(5, 5, 5, 5)  # Margin nhỏ để sát viền
-        self.layout.setSpacing(8)  # Khoảng cách giữa các thành phần
+        self.layout.setContentsMargins(3, 3, 3, 3)
+        self.layout.setSpacing(6)
 
         if self.file_type == "image":
-            # Đối với ảnh: Hiển thị thumbnail
+            # Code cho image
             self.thumbnail_label = QLabel()
             pixmap = QPixmap(self.filepath)
             if not pixmap.isNull():
@@ -64,13 +64,12 @@ class AttachedFileItem(QWidget):
             self.thumbnail_label.setFixedSize(50, 50)
             self.layout.addWidget(self.thumbnail_label)
 
-            # Nút X ở góc trên bên phải ảnh
-            self.delete_button = QPushButton(self.thumbnail_label)  # Đặt nút làm con của thumbnail_label
+            self.delete_button = QPushButton(self.thumbnail_label)
             self.delete_button.setIcon(QIcon("views/images/close_icon.png"))
             self.delete_button.setCursor(QCursor(Qt.PointingHandCursor))
             self.delete_button.setStyleSheet("""
                 QPushButton {
-                    background-color: rgba(0, 0, 0, 0.5);  /* Nền mờ để nổi bật trên ảnh */
+                    background-color: rgba(0, 0, 0, 0.5);
                     border: none;
                     border-radius: 8px;
                 }
@@ -79,21 +78,27 @@ class AttachedFileItem(QWidget):
                 }
             """)
             self.delete_button.setFixedSize(16, 16)
-            self.delete_button.move(34, 0)  # Đặt ở góc trên bên phải của thumbnail (50-16=34)
+            self.delete_button.move(34, 0)
             self.delete_button.clicked.connect(self.emit_remove_signal)
 
-            # Style cho khối ảnh
             self.setStyleSheet("""
                 AttachedFileItem {
-                    background-color: #404040;  /* Màu sáng hơn */
-                    border: 2px solid #555555;  /* Border rõ ràng */
+                    background-color: #404040;
+                    border: 2px solid #555555;
                     border-radius: 8px;
                 }
                 AttachedFileItem:hover {
-                    background-color: #4a4a4a;  /* Hover sáng hơn */
+                    background-color: #4a4a4a;
+                }
+                QToolTip {
+                    color: white;
+                    background-color: #2a2a2a;
+                    border: 1px solid #555555;
+                    border-radius: 4px;
+                    padding: 4px;
                 }
             """)
-            self.setFixedSize(54, 54)  # Kích thước cố định cho thumbnail + border
+            self.setFixedSize(54, 54)
         else:
             # Đối với tài liệu: Hiển thị icon và tên
             icon_label = QLabel()
@@ -103,7 +108,7 @@ class AttachedFileItem(QWidget):
                 icon_label.setPixmap(QPixmap("views/images/file_icon.png").scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             self.layout.addWidget(icon_label)
 
-            # Tên file: Cắt ngắn nếu dài quá 10 ký tự
+            # Tên file: Cắt ngắn nếu dài quá 20 ký tự
             display_name = self.filename if len(self.filename) <= 20 else self.filename[:20] + "..."
             filename_label = QLabel(display_name)
             filename_label.setStyleSheet("color: white; font-size: 12px;")
@@ -128,18 +133,25 @@ class AttachedFileItem(QWidget):
             delete_button.clicked.connect(self.emit_remove_signal)
             self.layout.addWidget(delete_button)
 
-            # Style cho khối tài liệu
+            # Style cho khối tài liệu + Tooltip
             self.setStyleSheet("""
                 AttachedFileItem {
-                    background-color: #404040;  /* Màu sáng hơn */
-                    border: 2px solid #555555;  /* Border rõ ràng */
+                    background-color: #404040;
+                    border: 2px solid #555555;
                     border-radius: 8px;
                 }
                 AttachedFileItem:hover {
-                    background-color: #4a4a4a;  /* Hover sáng hơn */
+                    background-color: #4a4a4a;
+                }
+                QToolTip {
+                    color: white;
+                    background-color: #2a2a2a;
+                    border: 1px solid #555555;
+                    border-radius: 4px;
+                    padding: 4px;
                 }
             """)
-            self.setFixedHeight(50)  # Chiều cao cố định cho tài liệu
+            self.setFixedHeight(50)
 
     def emit_remove_signal(self):
         """Emit signal when delete button is clicked, passing the AttachedFile object."""
@@ -151,7 +163,7 @@ class AttachedFilesWidget(QWidget):
         self.parent_chat_app = parent_chat_app  # Lưu instance ChatApp
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(8)  # Giảm spacing giữa các item
+        self.layout.setSpacing(6)  # Giảm spacing giữa các item
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
