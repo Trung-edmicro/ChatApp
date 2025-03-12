@@ -3,24 +3,40 @@ from views.utils.helpers import show_toast  # Import show_toast nếu bạn cầ
 from PIL import Image # Import Pillow
 import docx # Import docx
 import PyPDF2 # Import PyPDF2
+import base64
+import os
+
+def encode_image(image_path):
+    """Chuyển đổi ảnh thành chuỗi base64, hỗ trợ nhiều định dạng."""
+    try:
+        with open(image_path, "rb") as image_file:
+            image_data = image_file.read()
+            base64_encoded = base64.b64encode(image_data).decode('utf-8')
+
+        # Xác định MIME type dựa trên phần mở rộng của file
+        file_extension = os.path.splitext(image_path)[1].lower()
+        if file_extension == ".png":
+            mime_type = "image/png"
+        elif file_extension == ".jpg" or file_extension == ".jpeg":
+            mime_type = "image/jpeg"
+        elif file_extension == ".gif":
+            mime_type = "image/gif"
+        elif file_extension == ".bmp":
+            mime_type = "image/bmp"
+        elif file_extension == ".webp":
+            mime_type = "image/webp"
+        else:
+            raise ValueError(f"Không hỗ trợ định dạng ảnh: {file_extension}")
+
+        return f"data:{mime_type};base64,{base64_encoded}"
+    except Exception as e:
+        raise Exception(f"Lỗi encode ảnh {image_path}: {e}")
+
 
 def call_ai_api(user_message_text, is_toggle_on, gemini_chat, openai_client, history=None, image_files=None, document_files=None, parent_widget=None): # Thêm tham số history
     """
     Gọi AI API (OpenAI hoặc Gemini) dựa trên toggle state, hỗ trợ file ảnh và tài liệu cho Gemini (phiên bản dùng biến history trong api_handler).
 
-    Args:
-        user_message_text (str): Tin nhắn văn bản của người dùng.
-        is_toggle_on (bool): Trạng thái của toggle switch (True: OpenAI, False: Gemini).
-        gemini_chat (genai.ChatSession): Gemini chat session.
-        openai_client (openai.OpenAI): OpenAI client.
-        history (list, optional): Lịch sử chat hiện tại (list chat turns). Defaults to None. # Thêm tham số history
-        image_files (list, optional): Danh sách đường dẫn file ảnh. Defaults to None.
-        document_files (list, optional): Danh sách đường dẫn file tài liệu. Defaults to None.
-        parent_widget (QWidget, optional): Widget cha để hiển thị toast message. Defaults to None.
-
-    Returns:
-        tuple: (bot_reply_text, ai_sender, history) - Phản hồi từ AI, sender và history cập nhật. # Trả về history
-               Trả về None nếu có lỗi.
     """
     bot_reply_text = ""
     ai_sender = "system"
@@ -37,10 +53,69 @@ def call_ai_api(user_message_text, is_toggle_on, gemini_chat, openai_client, his
         """
 
         if is_toggle_on: # Toggle ON: OpenAI/ChatGPT
-            print("Gọi OpenAI/ChatGPT API từ api_handler.py (chưa hỗ trợ file, không dùng history)") # Cập nhật log message
+            print("Gọi OpenAI/ChatGPT API từ api_handler.py (hỗ trợ file)") # Cập nhật log message
+            messages = [{"role": "user", "content": prompt_template}]
+
+            # Xử lý file ảnh
+            if image_files:
+                for image_file in image_files:
+                    try:
+                        base64_image_url = encode_image(image_file.filepath)
+                        messages.append({
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Phân tích bức ảnh sau:"},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": base64_image_url
+                                    }
+                                },
+                            ]
+                        })
+                    except FileNotFoundError:
+                        print(f"Lỗi: Không tìm thấy file ảnh: {image_file}")
+                        continue
+                    except ValueError as e:
+                        print(f"Lỗi định dạng ảnh {image_file}: {e}")
+                        continue
+                    except Exception as e:
+                        print(f"Lỗi đọc file ảnh {image_file}: {e}")
+                        continue
+
+            # Xử lý file tài liệu (đọc nội dung và thêm vào prompt)
+            if document_files:
+                for doc_file in document_files:
+                    doc_text = ""
+                    try:
+                        if doc_file.filepath.lower().endswith(".docx"):
+                            doc = docx.Document(doc_file.filepath)
+                            for paragraph in doc.paragraphs:
+                                doc_text += paragraph.text + "\n"
+                        elif doc_file.filepath.lower().endswith(".pdf"):
+                            pdf_file = open(doc_file.filepath, 'rb')
+                            pdf_reader = PyPDF2.PdfReader(pdf_file)
+                            for page_num in range(len(pdf_reader.pages)):
+                                page = pdf_reader.pages[page_num]
+                                doc_text += page.extract_text()
+                            pdf_file.close()
+                        else:
+                            print(f"Lỗi: Định dạng file document không được hỗ trợ: {doc_file}. Chỉ hỗ trợ .docx và .pdf")
+                            continue
+
+                        messages.append({"role": "user", "content": f"File tài liệu đính kèm:\n{doc_text}"})
+
+                    except FileNotFoundError:
+                        print(f"Lỗi: Không tìm thấy file document: {doc_file}")
+                        continue
+                    except Exception as e:
+                        print(f"Lỗi đọc file document {doc_file}: {e}")
+                        continue
+
             openai_response = openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt_template}] # Không dùng history cho OpenAI
+                model="gpt-4.5-preview-2025-02-27", # or gpt-4 if you have access
+                messages=messages,
+                max_tokens=4096,
             )
             bot_reply_text = openai_response.choices[0].message.content.strip()
             ai_sender = "system"
@@ -75,8 +150,8 @@ def call_ai_api(user_message_text, is_toggle_on, gemini_chat, openai_client, his
                             doc = docx.Document(doc_file.filepath)
                             for paragraph in doc.paragraphs:
                                 doc_text += paragraph.text + "\n" # Đọc text từ từng paragraph trong docx
-                        elif doc_file.lower().endswith(".pdf"):
-                            pdf_file = open(doc_file, 'rb')
+                        elif doc_file.filepath.lower().endswith(".pdf"):
+                            pdf_file = open(doc_file.filepath, 'rb')
                             pdf_reader = PyPDF2.PdfReader(pdf_file)
                             for page_num in range(len(pdf_reader.pages)):
                                 page = pdf_reader.pages[page_num]
@@ -113,4 +188,4 @@ def call_ai_api(user_message_text, is_toggle_on, gemini_chat, openai_client, his
             show_toast(parent_widget, f"{bot_reply_text}", "error") # Show toast trên GUI nếu có parent_widget
         return None # Trả về None để báo hiệu lỗi
 
-    return bot_reply_text, ai_sender, current_history # Trả về history cập nhật
+    return bot_reply_text, ai_sender, current_history # Trả về history cập nhật # Trả về history cập nhật

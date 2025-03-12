@@ -1,6 +1,6 @@
 [Setup]
 AppName=ChatApp
-AppVersion=0.0.2
+AppVersion=0.0.5
 DefaultDirName={pf}\ChatApp
 DefaultGroupName=ChatApp
 OutputDir=Output
@@ -14,6 +14,7 @@ Source: "dist\chatapp\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdi
 
 [Icons]
 Name: "{group}\ChatApp"; Filename: "{app}\chatapp.exe"; IconFilename: "{app}\edmicro.ico"
+Name: "{commondesktop}\ChatApp"; Filename: "{app}\chatapp.exe"; IconFilename: "{app}\edmicro.ico" ;
 
-[Run]
-Filename: "{app}\chatapp.exe"; Description: "Run ChatApp"; Flags: nowait postinstall skipifsilent
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: string; ValueName: "{app}\chatapp.exe"; ValueData: "RUNASADMIN"; Flags: uninsdeletevalue

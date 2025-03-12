@@ -507,6 +507,7 @@ class ChatApp(QWidget):
         
         # Attached files widget
         self.attached_files_widget = AttachedFilesWidget(self) # Initialize AttachedFilesWidget
+        self.attached_files_widget.hide()
 
         self.initUI()
         self.load_sessions_from_db() # Gọi hàm load sessions từ DB
@@ -672,7 +673,6 @@ class ChatApp(QWidget):
         # === Attached files widget ===
         self.attached_files_widget = AttachedFilesWidget(self)
         self.attached_files_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred) # hoặc Expanding, Preferred
-        self.attached_files_widget.setFixedHeight(100)
         input_layout.addWidget(self.attached_files_widget, 0) # Căn trái widget trong input_layout (ĐẢM BẢO CÓ Qt.AlignLeft)
 
         # === Widget hiển thị prompt đính kèm ===
@@ -987,6 +987,9 @@ class ChatApp(QWidget):
                 self.update_attached_files_display()
 
     def update_attached_files_display(self):
+        if not self.image_files and not self.document_files: # No files, hide the widget
+            self.attached_files_widget.hide()
+            return
         """Cập nhật hiển thị các file đính kèm."""
         self.attached_files_widget.clear_files()
         for attached_file in self.image_files: # Duyệt qua danh sách AttachedFile objects
@@ -1211,10 +1214,21 @@ class ChatApp(QWidget):
 
         dialog.accept()
     
-# === Các hàm placeholder cho menu actions (cần implement logic thực tế) ===
     def rename_session(self, session_id, session_name, item):
         """Đổi tên session."""
-        new_name, ok = QInputDialog.getText(self, "Đổi tên Session", "Nhập tên mới:", text=session_name)
+        dialog = QInputDialog(self) # Create QInputDialog instance
+        dialog.setWindowTitle("Đổi tên Session")
+        dialog.setLabelText("Nhập tên mới:")
+        dialog.setTextValue(session_name)
+
+        # Find the QLineEdit inside the dialog and set its minimum width
+        line_edit = dialog.findChild(QLineEdit)
+        if line_edit:
+            line_edit.setMinimumWidth(500)  # Adjust the width as needed
+
+        ok = dialog.exec_() == QDialog.Accepted # Check if user pressed OK
+        new_name = dialog.textValue()
+
         if ok and new_name:
             db = next(get_db())
             if update_session_name(db, session_id, new_name): # Gọi controller update_session_name
